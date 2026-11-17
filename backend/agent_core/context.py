@@ -58,15 +58,33 @@ class ContextManager:
         self._sessions.pop(session_id, None)
 
     def slide_window(self, ctx: SessionContext) -> None:
-        """滑动窗口：保留 system + 后 N 条消息。"""
+        """滑动窗口：保留首条 system + 所有 pinned + 后 N 条。
+
+        pinned 消息（如记忆注入块）必须始终保留：它承担「历史参考」的作用，
+        一旦被窗口截掉，模型在后续轮次就看不到它，表现为记忆随机失效。
+        """
         if len(ctx.messages) <= self.max_messages:
             return
-        # 保留前 1 条 system（如有） + 后 N 条
+
+        head: List[Message] = []
         if ctx.messages and ctx.messages[0].role == "system":
-            system_msg = ctx.messages[0]
-            ctx.messages = [system_msg] + ctx.messages[-(self.max_messages - 1):]
-        else:
-            ctx.messages = ctx.messages[-self.max_messages:]
+            head.append(ctx.messages[0])
+
+        kept_ids = {id(m) for m in head}
+        pinned = [m for m in ctx.messages if m.pinned and id(m) not in kept_ids]
+        kept_ids |= {id(m) for m in pinned}
+
+        need = max(0, self.max_messages - len(head) - len(pinned))
+        tail: List[Message] = []
+        for m in reversed(ctx.messages):
+            if id(m) in kept_ids:
+                continue
+            tail.append(m)
+            if len(tail) >= need:
+                break
+        tail.reverse()
+
+        ctx.messages = head + pinned + tail
 
     def estimate_tokens(self, ctx: SessionContext) -> int:
         """粗略估算 token 数（按字符 / 1.5）。"""

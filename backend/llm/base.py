@@ -20,6 +20,9 @@ class Message:
     name: Optional[str] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List["ToolCall"]] = None
+    # 钉住的消息不会被滑动窗口或上下文压缩丢弃。
+    # 记忆注入块用它，否则第二轮对话就会被截断，表现为「记忆时有时无」。
+    pinned: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {"role": self.role}

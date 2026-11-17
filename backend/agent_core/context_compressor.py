@@ -49,9 +49,10 @@ class ContextCompressor:
         2. 保留最近 N 条消息（保留最新上下文）
         3. 将中间的历史消息压缩为一段摘要
         """
-        # 分离 system 和非 system 消息
-        system_msgs = [m for m in messages if m.role == "system"]
-        non_system = [m for m in messages if m.role != "system"]
+        # 分离 system 与非 system 消息。pinned 消息同样必须保留：
+        # 记忆注入块承担「历史参考」作用，压缩时要与 system prompt 同等对待。
+        system_msgs = [m for m in messages if m.role == "system" or m.pinned]
+        non_system = [m for m in messages if not (m.role == "system" or m.pinned)]
 
         if len(non_system) <= self.retain_recent:
             return messages

@@ -122,7 +122,14 @@ def connect(db_path: Optional[Path | str] = None) -> sqlite3.Connection:
     """打开连接并设置合理的 pragma。
 
     WAL 模式让读写并发不互相阻塞；外键约束保证删除记忆时指纹级联清理。
+    传 ":memory:" 时建立内存库，供调试与单元测试使用。
     """
+    if str(db_path) == ":memory:":
+        conn = sqlite3.connect(":memory:", check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
+        return conn
+
     path = Path(db_path) if db_path else default_db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 

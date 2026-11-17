@@ -47,3 +47,32 @@ audit:
 mcp:
   transport: "stdio"
   manifest_path: "./mcp/manifest.yaml"
+# ────────────────────────────────────────────────────────────────────
+# 记忆层（V5.4）
+# 独立 memory.db，与 audit.db 分离：审计只增不改，记忆要频繁更新与删除。
+# 本段全部可调，代码里不写死参数。
+# ────────────────────────────────────────────────────────────────────
+memory:
+  enabled: true
+  db_path: "./data/memory.db"
+  retrieve_k: 5              # 每次检索返回条数
+  inject_max_items: 3        # 注入提示词的最大条目数
+  inject_max_chars: 1200     # 注入块字符上限
+  stale_after_days: 180      # 超过 N 日未验证 → stale（降权不删除）
+  trust_threshold: 0.40      # 低于此信任度 → 写入隔离区
+  merge_threshold: 0.62      # 同症状同结论的合并阈值
+  write_enabled: true         # 是否允许从会话结果自动沉淀经验
+
+  # 打分参数：Score = (α·Sim + β·Env + γ·Success + δ·Freshness) × Π penalty
+  # 初值待预实验标定，调整后需重跑 MemBench 四组对照
+  score:
+    alpha: 0.40
+    beta: 0.30
+    gamma: 0.20
+    delta: 0.10
+    penalty_os: 0.30
+    penalty_arch: 0.10
+    penalty_kernel: 0.70
+    penalty_dep: 0.70
+    penalty_stale: 0.50
+    freshness_half_life_days: 90

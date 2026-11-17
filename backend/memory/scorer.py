@@ -35,11 +35,10 @@ from .types import (
 _KERNEL_SCORE = {MATCH_EXACT: 1.0, MATCH_MINOR: 0.70, MATCH_MAJOR: 0.40, MATCH_NONE: 0.0}
 _DEPS_SCORE = {MATCH_EXACT: 1.0, MATCH_MINOR: 0.60, MATCH_MAJOR: 0.20, MATCH_NONE: 0.0}
 
-# 离散维度的惩罚系数（用于乘性折扣）
-_OS_PENALTY_RATIO = {MATCH_EXACT: 1.0, MATCH_MINOR: 0.70, MATCH_MAJOR: 0.30, MATCH_NONE: 0.30}
-_ARCH_PENALTY_RATIO = {MATCH_EXACT: 1.0, MATCH_NONE: 0.10}
-_KERNEL_PENALTY_RATIO = {MATCH_EXACT: 1.0, MATCH_MINOR: 0.85, MATCH_MAJOR: 0.60, MATCH_NONE: 0.60}
-_DEPS_PENALTY_RATIO = {MATCH_EXACT: 1.0, MATCH_MINOR: 0.85, MATCH_MAJOR: 0.60, MATCH_NONE: 0.60}
+# 次版本不适用时的折扣（主版本用配置里的基准值，见 ScoreParams）
+_OS_MINOR_RATIO = 0.70
+_KERNEL_MINOR_RATIO = 0.85
+_DEPS_MINOR_RATIO = 0.85
 
 
 # ── BM25 ──────────────────────────────────────────────────────────────
@@ -148,28 +147,40 @@ class Scorer:
         return round(math.exp(-math.log(2) * days / self.p.freshness_half_life_days), 6)
 
     def penalties(self, levels: Dict[str, str], status: str) -> Dict[str, float]:
-        """返回生效的惩罚系数。未触发的维度不出现在结果里，便于解释。"""
+        """返回生效的惩罚系数。未触发的维度不出现在结果里，便于解释。
+
+        主版本/架构/内核/依赖不匹配时的折扣值来自配置（ScoreParams），
+        次版本用固定比值——次版本差异的轻重是结构问题，不该由调参决定。
+        系数为 1.0 的维度不出现在结果里，避免「看起来扣了其实没扣」。
+        """
         out: Dict[str, float] = {}
 
         os_level = levels.get("os", MATCH_EXACT)
-        if os_level != MATCH_EXACT:
-            out["os"] = _OS_PENALTY_RATIO.get(os_level, 0.3)
+        if os_level == MATCH_MINOR:
+            out["os"] = _OS_MINOR_RATIO
+        elif os_level in (MATCH_MAJOR, MATCH_NONE):
+            out["os"] = self.p.penalty_os
 
         if levels.get("arch", MATCH_EXACT) == MATCH_NONE:
-            out["arch"] = _ARCH_PENALTY_RATIO[MATCH_NONE]
+            out["arch"] = self.p.penalty_arch
 
         k_level = levels.get("kernel", MATCH_EXACT)
-        if k_level not in (MATCH_EXACT,):
-            out["kernel"] = _KERNEL_PENALTY_RATIO.get(k_level, 0.6)
+        if k_level == MATCH_MINOR:
+            out["kernel"] = _KERNEL_MINOR_RATIO
+        elif k_level in (MATCH_MAJOR, MATCH_NONE):
+            out["kernel"] = self.p.penalty_kernel
 
         d_level = levels.get("deps", MATCH_EXACT)
-        if d_level not in (MATCH_EXACT,):
-            out["deps"] = _DEPS_PENALTY_RATIO.get(d_level, 0.6)
+        if d_level == MATCH_MINOR:
+            out["deps"] = _DEPS_MINOR_RATIO
+        elif d_level in (MATCH_MAJOR, MATCH_NONE):
+            out["deps"] = self.p.penalty_dep
 
         if status == STATUS_STALE:
             out["stale"] = self.p.penalty_stale
 
-        return out
+        # 1.0 等于没折扣，不写进结果
+        return {k: v for k, v in out.items() if v < 1.0}
 
     def final_score(self, cand: Candidate) -> float:
         """(α·Sim + β·Env + γ·Success + δ·Freshness) × Π penalty"""

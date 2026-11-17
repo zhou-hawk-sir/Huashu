@@ -158,6 +158,7 @@ class AgentLoop:
         enable_diagnosis: bool = True,
         enable_compression: bool = True,
         workspace_trust: Optional[WorkspaceTrust] = None,
+        memory: Any = None,
     ) -> None:
         self.llm = llm
         self.context = context_manager or ContextManager()
@@ -171,6 +172,8 @@ class AgentLoop:
         self.enable_multi_agent = enable_multi_agent
         self.enable_diagnosis = enable_diagnosis
         self.enable_compression = enable_compression
+        # 记忆层门面（可选）。只提供参考与边界断言，不参与 allow/deny 取值。
+        self.memory = memory
 
         # 上下文压缩器
         self._compressor: Optional[ContextCompressor] = None
@@ -199,6 +202,7 @@ class AgentLoop:
             policy=self.policy,
             confirmation_manager=self.confirmation,
             tracer=None,
+            memory=self.memory,
         )
         self.dispatcher = dispatcher or ToolDispatcher(self.executor)
 
@@ -600,11 +604,45 @@ class AgentLoop:
                         )
                     )
 
+                # 2.1) 记忆检索（在输入检测之后，确保提示注入先被拦掉）
+                # 检索失败一律降级为空块：记忆不是安全组件，不能因为它坏了就不干活。
+                mem_result = None
+                mem_block = ""
+                tool_log: list = []
+                if self.memory is not None:
+                    try:
+                        mem_result = self.memory.retrieve(user_input, session_id=session_id)
+                        mem_block = self.memory.render_block(mem_result, session_id)
+                    except Exception as e:
+                        logger.warning(f"memory retrieve failed, degraded: {e}")
+                        mem_block = ""
+
                 # 命令知识库增强
                 raw_user_msg = Message(role="user", content=user_input)
                 user_msg_for_ctx = self.prompt.augment_user_message_with_kb(raw_user_msg)
                 ctx.add_user(user_msg_for_ctx.content)
                 self.audit_db.add_message(session_id, "user", user_input)
+
+                # 记忆块以独立 system 消息注入，并标注 pinned：
+                # 拼进用户消息会被模型当成用户要求；不 pinned 会在第二轮被窗口丢掉。
+                # 位置放在首条 system 之后：部分 OpenAI 兼容接口要求 system 消息靠前。
+                if mem_block:
+                    ctx.messages = [
+                        m
+                        for m in ctx.messages
+                        if not (m.role == "system" and m.name == "memory")
+                    ]
+                    insert_at = 1 if ctx.messages and ctx.messages[0].role == "system" else 0
+                    ctx.messages.insert(
+                        insert_at,
+                        Message(
+                            role="system",
+                            content=mem_block,
+                            name="memory",
+                            pinned=True,
+                        ),
+                    )
+
                 self.context.slide_window(ctx)
 
                 # 2.5) 语义压缩（接近 token 上限时）
@@ -622,6 +660,12 @@ class AgentLoop:
                 )
                 self.executor.tracer = tracer
                 await tracer.trace("intent", "user", input={"content": user_input})
+
+                # 3.1) 记忆链路追踪：检索 → 命中
+                if self.memory is not None:
+                    self.memory.bind_tracer(session_id, tracer)
+                    if mem_result is not None:
+                        await self.memory.emit_retrieve(tracer, mem_result)
 
                 # 4) 多 Agent 编排决策
                 if self.enable_multi_agent:
@@ -645,6 +689,9 @@ class AgentLoop:
                                 context_hints={"session_id": session_id},
                             )
                             ctx.add_assistant(multi_result)
+                            await self._persist_memory(
+                                tracer, session_id, user_input, tool_log, multi_result
+                            )
                             await send(StreamEvent("final", {"content": multi_result}))
                             return
                         except Exception as e:
@@ -678,6 +725,10 @@ class AgentLoop:
                     if not resp.has_tool_calls:
                         ctx.add_assistant(resp.content)
                         self.audit_db.add_message(session_id, "assistant", resp.content)
+                        # 结果回写：只有真的执行过工具的成功处置才值得沉淀
+                        await self._persist_memory(
+                            tracer, session_id, user_input, tool_log, resp.content
+                        )
                         await send(StreamEvent("token", {"content": resp.content}))
                         await send(StreamEvent("final", {"content": resp.content}))
                         return
@@ -732,6 +783,14 @@ class AgentLoop:
                         continue  # 进入下一轮 LLM 决策（但本轮没改 ctx）
 
                     for tc, result, text in zip(resp.tool_calls, results, texts):
+                        tool_log.append(
+                            {
+                                "name": tc.name,
+                                "args": tc.arguments,
+                                "success": bool(result.success),
+                                "decision": result.decision,
+                            }
+                        )
                         await send(StreamEvent("tool_result", {
                             "name": tc.name,
                             "success": result.success,
@@ -791,6 +850,32 @@ class AgentLoop:
             self._active_tasks.pop(session_id, None)
 
         await task
+
+    async def _persist_memory(
+        self,
+        tracer: Any,
+        session_id: str,
+        user_input: str,
+        tool_log: list,
+        answer: str,
+    ) -> None:
+        """把本轮处置结果沉淀为经验。
+
+        这是整个链路里唯一允许 fail-open 的位置：记忆写入不是安全判定，
+        写失败只记日志，绝不改变本轮结果。
+        """
+        if self.memory is None:
+            return
+        try:
+            result = self.memory.observe_result(
+                session_id,
+                user_input,
+                {"success": True, "tools": tool_log, "answer": answer},
+            )
+            if result is not None:
+                await self.memory.emit_write(tracer, result)
+        except Exception as e:
+            logger.warning(f"memory write failed: {e}")
 
     # -------------------------------------------------------------
     # 取消正在跑的 stream_run（前端"停止"按钮 → WS cancel）

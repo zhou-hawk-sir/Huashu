@@ -23,6 +23,13 @@ class TraceStepKind(str, Enum):
     DENY = "deny"
     RESULT = "result"
     ERROR = "error"
+    # ── 记忆层 5 类节点（V5.4）─────────────────────────────────────
+    # 让「记忆是否影响了决策」可回放：检索 → 命中 → 阻断 → 写入 → 过期
+    MEMORY_RETRIEVE = "memory.retrieve"
+    MEMORY_HIT = "memory.hit"
+    MEMORY_BLOCKED = "memory.blocked"
+    MEMORY_WRITE = "memory.write"
+    MEMORY_EXPIRE = "memory.expire"
 
 
 class TraceActor(str, Enum):

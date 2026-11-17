@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>记忆管理 · 华枢智维</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#ffffff; --ink:#1b2330; --ink-2:#5a6473; --line:#e3e6ec;
+    --accent:#2f6bd8; --accent-soft:#eaf1fd;
+    --ok:#1f9d63; --warn:#c9781a; --bad:#c43d3d; --purple:#6a4bd8;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.55}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 22px;
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+  header h1{margin:0;font-size:16px;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--ink-2);font-size:12px}
+  .env{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .chip{background:#f0f2f6;border:1px solid var(--line);border-radius:999px;
+    padding:2px 10px;font-size:12px;color:var(--ink-2);font-family:var(--mono)}
+  main{padding:18px 22px 60px;max-width:1360px;margin:0 auto}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .card .k{color:var(--ink-2);font-size:12px}
+  .card .v{font-size:22px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+  .toolbar{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  input[type=text],select{border:1px solid var(--line);border-radius:8px;padding:7px 10px;
+    font-size:13px;background:#fff;color:var(--ink);outline:none}
+  input[type=text]{min-width:260px}
+  input[type=text]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 13px;
+    font-size:13px;cursor:pointer;color:var(--ink)}
+  button:hover{border-color:#c8cfdb;background:#fafbfd}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:#2a61c4}
+  button.danger{color:var(--bad);border-color:#f0cdcd}
+  button.danger:hover{background:#fdf3f3}
+  .grid{display:grid;grid-template-columns:1fr 420px;gap:14px;align-items:start}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .panel h2{margin:0;padding:11px 14px;font-size:13px;font-weight:650;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px;background:#fbfcfe}
+  .panel h2 .count{color:var(--ink-2);font-weight:400;font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #eef0f5;vertical-align:top}
+  th{font-weight:600;color:var(--ink-2);font-size:12px;background:#fbfcfe;position:sticky;top:0}
+  tbody tr:hover{background:#f8faff;cursor:pointer}
+  tbody tr.active{background:var(--accent-soft)}
+  .tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;border:1px solid transparent}
+  .tag.kind{background:#eef2fb;color:#31538f;border-color:#dbe4f6}
+  .tag.active{background:#eaf7f0;color:var(--ok);border-color:#cdeadd}
+  .tag.stale{background:#fdf4e6;color:var(--warn);border-color:#f3e2c6}
+  .tag.conflict{background:#f4eefc;color:var(--purple);border-color:#e3d7f7}
+  .tag.quarantined{background:#fdeeee;color:var(--bad);border-color:#f4d4d4}
+  .tag.deleted{background:#f1f2f5;color:#71798a;border-color:#e2e5ec}
+  .muted{color:var(--ink-2);font-size:12px}
+  .mono{font-family:var(--mono);font-size:12px}
+  .detail{padding:14px;max-height:78vh;overflow:auto}
+  .detail h3{margin:0 0 4px;font-size:14px}
+  .field{margin:10px 0}
+  .field .lab{color:var(--ink-2);font-size:12px;margin-bottom:2px}
+  .field .val{white-space:pre-wrap;word-break:break-word}
+  .kv{background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+    font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;word-break:break-all}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .empty{padding:26px 14px;text-align:center;color:var(--ink-2)}
+  .score{font-variant-numeric:tabular-nums;font-weight:600}
+  .bar{height:6px;border-radius:3px;background:#eef0f5;overflow:hidden;margin-top:4px}
+  .bar span{display:block;height:100%;background:linear-gradient(90deg,#7aa6ec,#2f6bd8)}
+  .banner{margin:0 0 14px;padding:9px 12px;border-radius:8px;font-size:13px;
+    background:#fdf4e6;border:1px solid #f3e2c6;color:#8a5a13}
+  .banner.bad{background:#fdeeee;border-color:#f4d4d4;color:var(--bad)}
+  .hint{margin-top:8px;padding:8px 10px;border-left:3px solid var(--accent);
+    background:var(--accent-soft);border-radius:0 6px 6px 0;font-size:12px;color:#2c4568;white-space:pre-wrap}
+  .excluded{font-size:12px;color:var(--ink-2)}
+  footer{margin-top:18px;color:var(--ink-2);font-size:12px;line-height:1.8}
+  code{font-family:var(--mono);background:#f0f2f6;border-radius:4px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>记忆管理</h1>
+    <div class="sub">华枢智维 V5.4 · 记忆只作参考，不授权、不降风险、不跳审批、不改策略</div>
+  </div>
+  <div class="env" id="envChips"></div>
+</header>
+
+<main>
+  <div id="banner" class="banner" style="display:none"></div>
+
+  <section class="cards" id="cards"></section>
+
+  <section class="toolbar">
+    <input type="text" id="query" placeholder="输入故障现象检索记忆，例如：ollama 起不来 端口被占用" />
+    <button class="primary" id="btnSearch">检索</button>
+    <select id="kind">
+      <option value="">全部类型</option>
+      <option value="episodic">episodic 事件</option>
+      <option value="semantic">semantic 事实</option>
+      <option value="procedural">procedural 流程</option>
+      <option value="working">working 工作</option>
+    </select>
+    <select id="status">
+      <option value="">全部状态</option>
+      <option value="active">active</option>
+      <option value="stale">stale</option>
+      <option value="conflict">conflict</option>
+      <option value="quarantined">quarantined</option>
+      <option value="deleted">deleted</option>
+    </select>
+    <button id="btnList">列表</button>
+    <button id="btnSweep">过期巡检</button>
+    <button id="btnRefresh">刷新</button>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2 id="listTitle">记忆列表 <span class="count" id="listCount"></span></h2>
+      <div id="listWrap"><div class="empty">加载中…</div></div>
+    </section>
+
+    <aside class="panel">
+      <h2>详情</h2>
+      <div class="detail" id="detail"><div class="empty">选择左侧一条记忆查看详情</div></div>
+    </aside>
+  </div>
+
+  <footer>
+    接口：<code>GET /api/memory/list</code> · <code>GET /api/memory/search</code> ·
+    <code>POST /api/memory/sweep</code> · <code>DELETE /api/memory/{id}</code><br />
+    删除为「可验证删除」：先置 deleted 留墓碑，再清理存储与索引，最后返回各表残留计数。
+  </footer>
+</main>
+
+<script src="./app.js"></script>
+</body>
+</html>

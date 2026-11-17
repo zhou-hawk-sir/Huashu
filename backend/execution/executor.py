@@ -38,12 +38,15 @@ class Executor:
         confirmation_manager: Optional[ConfirmationManager] = None,
         tracer: Any = None,
         cmd_validator: Any = None,
+        memory: Any = None,
     ) -> None:
         self.policy = policy or PolicyEngine()
         self.confirmation = confirmation_manager or ConfirmationManager()
         self.tracer = tracer
         self.registry = get_default_registry()
         self.cmd_validator = cmd_validator  # 可选：CmdValidator
+        # 记忆层门面（可选）。只用于边界断言，不参与任何判定取值。
+        self.memory = memory
         # CONFIRM 串行化锁：每 session 一把，防止多个 confirm 同时弹出
         self._confirm_locks: Dict[str, asyncio.Lock] = {}
 
@@ -75,6 +78,39 @@ class Executor:
                              不再硬编码 10s（H6 修复）。
         """
         start = time.time()
+
+        # 记忆边界断言：放在策略引擎之前，让「记忆导致的问题」与「策略导致的问题」
+        # 在追踪里可区分。断言只看记忆有没有越界，不改判定结果本身。
+        if self.memory is not None:
+            try:
+                _declared = self.registry.get(tool_name)
+                _risk = getattr(_declared, "risk_level", "") if _declared else ""
+                risk_level = getattr(_risk, "value", _risk) or ""
+            except Exception:
+                risk_level = ""
+            try:
+                guard = self.memory.guard(
+                    tool_name, arguments or {}, risk_level=risk_level or "",
+                    session_id=session_id or "",
+                )
+            except Exception as e:
+                # 记忆不可用不等于不安全：交给基础安全链独立判定
+                logger.warning(f"memory guard failed (degraded): {e}")
+                guard = None
+            if guard is not None and not guard.allowed:
+                if self.tracer:
+                    try:
+                        await self.memory.emit_blocked(self.tracer, guard, tool_name)
+                    except Exception as e:
+                        logger.debug(f"memory blocked trace failed: {e}")
+                return ExecutionResult(
+                    success=False,
+                    tool=tool_name,
+                    error=f"记忆边界断言拒绝：{guard.reason}",
+                    duration_ms=int((time.time() - start) * 1000),
+                    decision="deny",
+                )
+
         verdict = self.policy.evaluate_tool_call(tool_name, arguments, workspace_root=workspace_root)
 
         # 命令权限 enforcer（denied_commands：s6 修复 - 之前 enforcer 加载了但 executor 没接，导致

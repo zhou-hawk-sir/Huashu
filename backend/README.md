@@ -42,8 +42,24 @@ llm:
 | `mcp/` | MCP 协议 + 工具注册中心 |
 | `tools/` | 28 个 MCP 工具（lsof/netstat/journalctl/...） |
 | `execution/` | 执行层（含 shell 注入防护） |
-| `audit/` | 思维链审计（JSONL + SQLite） |
+| `audit/` | 思维链审计（JSONL + SQLite），含 5 类 `memory.*` 节点 |
+| `memory/` | 记忆层（V5.4）：存储/指纹/分词/打分/检索/仲裁/过期/写入网关/边界断言/评测 |
+| `web/memory/` | 记忆管理页（原生 ES6 单页，挂 `/web/memory/`） |
 | `config/` | YAML 配置（hooks/policy/risk_rules/...） |
+
+## 记忆层（V5.4）
+
+```bash
+python scripts/preflight.py         # 环境自检（七项）
+python scripts/seed_memory_demo.py  # 灌入演示记忆
+python scripts/run_bench.py         # MemBench 四组 × 10 场景 × 3 次
+python -m pytest tests/ -q          # 157 项单测
+```
+
+- 记忆库为独立 `data/memory.db`，与 `audit.db` 分离，靠 `session_id` 关联；
+- 零新增运行时依赖：存储用 `sqlite3`，检索用 `re`/`math`，指纹用 `subprocess`/`platform`；
+- 记忆只作参考：`memory/guard.py` 的四项边界断言在策略判定前执行，越界即拒绝；
+- 管理页：`http://<host>:8080/web/memory/`。
 
 ## 部署到麒麟 V11
 

@@ -27,9 +27,30 @@ from utils.logger import get_logger
 
 from .routes import build_router, mcp_router
 from .cmd_kb_router import build_cmd_kb_router
+from .memory_router import build_memory_router
 from .ws import build_ws_router
 
 logger = get_logger("api.app")
+
+
+def _create_memory_service():
+    """装配记忆层。失败返回 None：没有记忆也要能起服务（降级而非阻断）。"""
+    try:
+        from memory.service import MemoryConfig, MemoryService
+
+        cfg = MemoryConfig.from_settings()
+        if not cfg.enabled:
+            logger.info("memory.enabled=false，记忆层未启用")
+            return None
+        svc = MemoryService(config=cfg)
+        logger.info(
+            f"MemoryService ready: db={svc.db_path} "
+            f"total={svc.store.count()} env={svc.fingerprint().key()}"
+        )
+        return svc
+    except Exception as e:
+        logger.warning(f"MemoryService init failed, running without memory: {e}")
+        return None
 
 
 def create_app() -> FastAPI:
@@ -67,6 +88,9 @@ def create_app() -> FastAPI:
     # 3.6 装入 hook 的 PolicyEngine
     policy = PolicyEngine(llm_client=llm, hook_engine=hook_engine)
 
+    # 3.7 记忆层（V5.4）：独立 memory.db，只作参考与边界断言，不改安全链语义
+    memory = _create_memory_service()
+
     # 4. AgentLoop（增强版：多Agent + 诊断 + 压缩）
     loop = AgentLoop(
         llm=llm,
@@ -77,6 +101,7 @@ def create_app() -> FastAPI:
         enable_diagnosis=True,
         enable_compression=True,
         max_iterations=30,
+        memory=memory,
     )
     # 注入 cmd_validator 到 executor
     loop.executor.cmd_validator = cmd_validator
@@ -131,6 +156,8 @@ def create_app() -> FastAPI:
     app.include_router(mcp_router)
     # 命令知识库 REST（/api/cmd_kb/*）— 供前端 CmdKbView 使用
     app.include_router(build_cmd_kb_router())
+    # 记忆层 REST（/api/memory/*）— 供 /web/memory/ 管理页使用
+    app.include_router(build_memory_router(memory))
 
     # 简易 B/S 前端（web/{index.html, style.css, app.js}）
     try:
@@ -154,5 +181,6 @@ def create_app() -> FastAPI:
     app.state.cmd_store = cmd_store
     app.state.cmd_searcher = cmd_searcher
     app.state.cmd_validator = cmd_validator
+    app.state.memory = memory
 
     return app

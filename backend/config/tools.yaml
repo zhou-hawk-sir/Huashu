@@ -1,210 +1,248 @@
 # MCP 工具清单（Claude 风格 Schema）
+#
+# 本文件由 scripts/sync_tools_yaml.py 从 tools/__init__.py::all_tools() 生成，
+# 请勿手改。工具增删后重新生成：
+#     cd backend && python scripts/sync_tools_yaml.py
+#
+# 注意：shell.execute / shell.execute_elevated 的 risk_level 声明为 low，
+# 实际风险由 safety/risk_classifier 按命令内容动态分级（高危命令直接拒绝）。
 
 tools:
-  - name: process.list
-    description: "列出系统进程，支持按用户、命令名过滤"
-    risk_level: low
-    required_capability: process.read
-    input_schema:
-      type: object
-      properties:
-        user:
-          type: string
-          description: "按用户名过滤"
-        pattern:
-          type: string
-          description: "按命令名正则过滤"
-        limit:
-          type: integer
-          default: 50
-      required: []
-
-  - name: process.kill
-    description: "终止指定 PID 的进程"
-    risk_level: high
-    required_capability: process.kill
-    input_schema:
-      type: object
-      properties:
-        pid:
-          type: integer
-          description: "进程 PID"
-        signal:
-          type: string
-          default: "TERM"
-          enum: ["TERM", "KILL", "HUP", "INT"]
-      required: ["pid"]
-
-  - name: network.list
-    description: "列出网络连接（netstat/ss）"
-    risk_level: low
-    required_capability: network.read
-    input_schema:
-      type: object
-      properties:
-        proto:
-          type: string
-          enum: ["tcp", "udp", "all"]
-          default: "all"
-        state:
-          type: string
-          enum: ["LISTEN", "ESTABLISHED", "all"]
-          default: "all"
-      required: []
-
-  - name: network.connectivity
-    description: "测试到目标主机的网络连通性"
-    risk_level: low
-    required_capability: network.read
-    input_schema:
-      type: object
-      properties:
-        host:
-          type: string
-          description: "目标主机或 IP"
-        count:
-          type: integer
-          default: 3
-      required: ["host"]
-
-  - name: disk.usage
-    description: "查看磁盘使用情况（df -h）"
-    risk_level: low
-    required_capability: disk.read
-    input_schema:
-      type: object
-      properties:
-        path:
-          type: string
-          default: "/"
-      required: []
-
-  - name: disk.find_large
-    description: "查找大于指定大小的文件或目录"
-    risk_level: low
-    required_capability: disk.read
-    input_schema:
-      type: object
-      properties:
-        path:
-          type: string
-          default: "/var"
-        min_size_mb:
-          type: integer
-          default: 100
-        limit:
-          type: integer
-          default: 20
-      required: []
-
-  - name: disk.cleanup
-    description: "清理指定路径的过期文件（日志/tmp）"
-    risk_level: medium
-    required_capability: disk.write
-    input_schema:
-      type: object
-      properties:
-        path:
-          type: string
-          description: "要清理的目录（必须在 /tmp 或 /var/log 下）"
-        pattern:
-          type: string
-          default: "*.log.*"
-        older_than_days:
-          type: integer
-          default: 7
-      required: ["path"]
-
-  - name: log.journal
-    description: "查询 systemd 日志"
-    risk_level: low
-    required_capability: log.read
-    input_schema:
-      type: object
-      properties:
-        unit:
-          type: string
-          description: "服务单元名"
-        since:
-          type: string
-          description: "起始时间，如 '1 hour ago'"
-        priority:
-          type: string
-          enum: ["emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"]
-        lines:
-          type: integer
-          default: 100
-      required: []
-
-  - name: file.read
-    description: "读取文件内容"
-    risk_level: low
-    required_capability: file.read
-    input_schema:
-      type: object
-      properties:
-        path:
-          type: string
-          description: "文件绝对路径"
-        lines:
-          type: integer
-          default: 100
-      required: ["path"]
-
-  - name: file.write
-    description: "创建或覆盖（也可追加）一个文本文件的内容"
-    risk_level: medium
-    required_capability: file.write
-    input_schema:
-      type: object
-      properties:
-        path:
-          type: string
-          description: "目标文件绝对路径"
-        content:
-          type: string
-          description: "要写入的文本内容"
-        append:
-          type: boolean
-          default: false
-          description: "追加到已有内容末尾；默认 false 为覆盖"
-      required: ["path", "content"]
-
-  - name: file.remove
-    description: "删除文件或空目录"
-    risk_level: high
-    required_capability: file.write
-    input_schema:
-      type: object
-      properties:
-        path:
-          type: string
-          description: "目标路径"
-        force:
-          type: boolean
-          default: false
-      required: ["path"]
-
-  - name: service.status
-    description: "查看 systemd 服务状态"
-    risk_level: low
-    required_capability: service.read
-    input_schema:
-      type: object
-      properties:
-        name:
-          type: string
-          description: "服务名"
-      required: ["name"]
-
-  - name: service.restart
-    description: "重启 systemd 服务"
-    risk_level: medium
-    required_capability: service.write
-    input_schema:
-      type: object
-      properties:
-        name:
-          type: string
-          description: "服务名"
-      required: ["name"]
+- name: process.list
+  description: 列出系统进程，支持按用户、命令名过滤
+  input_schema:
+    type: object
+    properties:
+      user:
+        type: string
+        description: 按用户名过滤
+      pattern:
+        type: string
+        description: 按命令名正则过滤
+      limit:
+        type: integer
+        default: 50
+    required: []
+  risk_level: low
+  required_capability: process.read
+- name: process.kill
+  description: 终止指定 PID 的进程
+  input_schema:
+    type: object
+    properties:
+      pid:
+        type: integer
+        description: 进程 PID
+      signal:
+        type: string
+        default: TERM
+        enum:
+        - TERM
+        - KILL
+        - HUP
+        - INT
+    required:
+    - pid
+  risk_level: high
+  required_capability: process.kill
+- name: disk.find_large
+  description: 查找大于指定大小的文件
+  input_schema:
+    type: object
+    properties:
+      path:
+        type: string
+        default: /var
+      min_size_mb:
+        type: integer
+        default: 100
+      limit:
+        type: integer
+        default: 20
+    required: []
+  risk_level: low
+  required_capability: disk.read
+- name: disk.cleanup
+  description: 清理指定路径的过期文件
+  input_schema:
+    type: object
+    properties:
+      path:
+        type: string
+        description: 要清理的目录
+      pattern:
+        type: string
+        default: '*.log.*'
+      older_than_days:
+        type: integer
+        default: 7
+    required:
+    - path
+  risk_level: medium
+  required_capability: disk.write
+- name: log.journal
+  description: 查询 systemd 日志
+  input_schema:
+    type: object
+    properties:
+      unit:
+        type: string
+        description: 服务单元名
+      since:
+        type: string
+        description: 起始时间，如 '1 hour ago'
+      priority:
+        type: string
+        enum:
+        - emerg
+        - alert
+        - crit
+        - err
+        - warning
+        - notice
+        - info
+        - debug
+      lines:
+        type: integer
+        default: 100
+    required: []
+  risk_level: low
+  required_capability: log.read
+- name: file.read
+  description: 读取文件内容
+  input_schema:
+    type: object
+    properties:
+      path:
+        type: string
+        description: 文件绝对路径
+      lines:
+        type: integer
+        default: 100
+    required:
+    - path
+  risk_level: low
+  required_capability: file.read
+- name: file.write
+  description: 创建或覆盖（也可追加）一个文本文件的内容
+  input_schema:
+    type: object
+    properties:
+      path:
+        type: string
+        description: 目标文件绝对路径
+      content:
+        type: string
+        description: 要写入的文本内容
+      append:
+        type: boolean
+        default: false
+        description: 追加到已有内容末尾；默认 False 为覆盖
+    required:
+    - path
+    - content
+  risk_level: medium
+  required_capability: file.write
+- name: file.remove
+  description: 删除文件或目录。recursive=true 时递归删除整个目录（rm -rf），默认 false 删单文件/空目录
+  input_schema:
+    type: object
+    properties:
+      path:
+        type: string
+        description: 目标路径
+      force:
+        type: boolean
+        default: false
+      recursive:
+        type: boolean
+        default: false
+        description: 递归删除整个目录（等同 rm -rf）。默认 false 仅删单文件/空目录
+    required:
+    - path
+  risk_level: medium
+  required_capability: file.write
+- name: service.status
+  description: 查看 systemd 服务状态
+  input_schema:
+    type: object
+    properties:
+      name:
+        type: string
+        description: 服务名
+    required:
+    - name
+  risk_level: low
+  required_capability: service.read
+- name: service.restart
+  description: 重启 systemd 服务
+  input_schema:
+    type: object
+    properties:
+      name:
+        type: string
+        description: 服务名
+    required:
+    - name
+  risk_level: medium
+  required_capability: service.write
+- name: shell.execute
+  description: 执行任意 shell 命令（如 mkdir / rm / cp / chmod / lsof / ss / cat / grep ...）。**默认以启动
+    Agent 的当前用户身份执行**，无需二次确认、无 sudo。**唯一禁用**：命令里包含 sudo / su / doas / pkexec 时直接拒绝（用
+    shell.execute_elevated）。命令名必须在 KB 中（避免 LLM 编造）。返回 {returncode, stdout, stderr,
+    duration_ms}。
+  input_schema:
+    type: object
+    properties:
+      cmd:
+        type: string
+        description: 完整命令行（字符串）
+      cwd:
+        type: string
+        description: 可选：执行工作目录
+      timeout:
+        type: integer
+        description: 超时秒数，默认 30，最大 600
+    required:
+    - cmd
+  risk_level: low
+  required_capability: shell.execute
+  risk_note: 按命令内容动态分级：高危拒绝、中危二次确认、低危放行
+- name: shell.execute_elevated
+  description: '以 root 身份（通过 sudo -n）执行 shell 命令。要求启动 Agent 的用户在 /etc/sudoers.d/opsagent
+    配置 NOPASSWD。用于运维需要改系统配置 / 写 root 拥有目录的场景。返回 {returncode, stdout, stderr, duration_ms,
+    elevated: True}。'
+  input_schema:
+    type: object
+    properties:
+      cmd:
+        type: string
+        description: 完整命令行（字符串）
+      cwd:
+        type: string
+        description: 可选：执行工作目录
+      timeout:
+        type: integer
+        description: 超时秒数，默认 30，最大 600
+    required:
+    - cmd
+  risk_level: low
+  required_capability: shell.execute.elevated
+  risk_note: 提权入口，受 permissions.yaml 与 risk_classifier 双重约束
+- name: web_search
+  description: 使用 DuckDuckGo HTML 搜索公网信息（无需 API key）。输入 query 关键词，返回首个结果片段（截断至 4000
+    字符）。仅允许白名单域名；私网/回环目标一律拒绝。
+  input_schema:
+    type: object
+    properties:
+      query:
+        type: string
+        description: 搜索关键词
+      url:
+        type: string
+        description: 可选：自定义目标 URL（必须是白名单域名）。缺省时使用 DuckDuckGo HTML 搜索。
+    required:
+    - query
+  risk_level: medium
+  required_capability: network
+  risk_note: 出网访问，默认中危需确认

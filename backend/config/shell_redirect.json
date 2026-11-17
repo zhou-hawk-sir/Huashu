@@ -1,0 +1,70 @@
+{
+  "ps": {
+    "tool": "process.list",
+    "reason": "查看进程列表请用 process.list（结构化输出 + 业务校验）"
+  },
+  "pgrep": {
+    "tool": "process.list",
+    "reason": "查找进程请用 process.list"
+  },
+  "pidof": {
+    "tool": "process.list",
+    "reason": "查找进程 PID 请用 process.list"
+  },
+  "pkill": {
+    "tool": "process.kill",
+    "reason": "按名称杀进程请用 process.kill（带信号安全校验）"
+  },
+  "kill": {
+    "tool": "process.kill",
+    "reason": "杀进程请用 process.kill（信号安全 + 二次确认）"
+  },
+  "killall": {
+    "tool": "process.kill",
+    "reason": "按名称杀进程请用 process.kill"
+  },
+  "du": {
+    "tool": "disk.find_large",
+    "reason": "查找大文件/目录请用 disk.find_large（业务校验 + 排序）"
+  },
+  "df": {
+    "tool": "disk.find_large",
+    "reason": "查看磁盘空间请用 disk.find_large 或 disk.cleanup"
+  },
+  "cat": {
+    "tool": "file.read",
+    "reason": "读文件请用 file.read（带路径安全校验）"
+  },
+  "less": {
+    "tool": "file.read",
+    "reason": "读文件请用 file.read"
+  },
+  "more": {
+    "tool": "file.read",
+    "reason": "读文件请用 file.read"
+  },
+  "head": {
+    "tool": "file.read",
+    "reason": "读文件请用 file.read"
+  },
+  "tail": {
+    "tool": "file.read",
+    "reason": "读文件请用 file.read"
+  },
+  "rm": {
+    "tool": "file.remove",
+    "reason": "删除请用 file.remove（recursive=true 递归删除目录）。带路径保护 + 二次确认"
+  },
+  "systemctl": {
+    "tool": "service.restart",
+    "reason": "服务操作请用 service.status / service.restart（带二次确认）"
+  },
+  "service": {
+    "tool": "service.status",
+    "reason": "服务操作请用 service.status / service.restart"
+  },
+  "journalctl": {
+    "tool": "log.journal",
+    "reason": "查日志请用 log.journal（journalctl 集成 + 时间过滤）"
+  }
+}

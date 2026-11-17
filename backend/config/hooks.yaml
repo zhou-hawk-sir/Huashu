@@ -1,0 +1,26 @@
+hooks:
+  - id: "no-rm-rf-system"
+    event: PreToolUse
+    match_tool: shell.execute
+    match_cmd_regex: "rm\\s+-rf\\s+/(?!tmp/|var/tmp/|home/)"
+    action: deny
+    message: "禁止 rm -rf 系统根目录（除 /tmp /home）"
+
+  - id: "audit-all-write"
+    event: PostToolUse
+    match_tool: file.write
+    action: log_only
+    log_path: /var/log/opsagent/audit.log
+
+  - id: "warn-loongarch-binary"
+    event: PreToolUse
+    match_tool: shell.execute
+    match_cmd_regex: "^/usr/bin/(ls|cat|grep)\\b"
+    action: log_only
+
+  - id: "ask-package-install"
+    event: PreToolUse
+    match_tool: shell.execute
+    match_cmd_regex: "(yum|dnf|rpm|apt|pip|pip3)\\s+(install|erase|update)"
+    action: ask
+    message: "包管理操作需用户确认"

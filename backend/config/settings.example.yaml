@@ -1,0 +1,49 @@
+# 示例配置 — 复制本文件为 settings.yaml 后填入敏感信息
+# 实际部署建议通过环境变量覆盖 api_key 等字段
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 1
+  log_level: "info"
+
+llm:
+  provider: "deepseek"  # 生产改为 deepseek 或 qwen
+  base_url: "https://api.deepseek.com/v1"
+  api_key_env: "DEEPSEEK_API_KEY"
+  model: "deepseek-chat"
+  timeout: 30
+  max_tokens: 4096
+  temperature: 0.2
+
+safety:
+  injection_detection: true
+  risk_classification: true
+  require_confirmation_for_medium: true
+  llm_self_check: false
+
+  # 仿 Claude Code 模型（settings-strict.json）：
+  # - default_user: 留空 = 当前用户（不再强制 nobody）
+  # - elevated 工具真正提权到 root（在 allow_root_for_tools 白名单内）
+  default_user: null
+  elevated_user: "opsagent"  # 已弃用，保留兼容
+  deny_root: false
+
+  allow_root_for_tools:
+    - "shell.execute_elevated"  # 仿 Claude Code 的 sandbox.enabled=false
+
+  # 可选沙箱
+  sandbox:
+    enabled: false
+    profile: "shell_execute"
+    auto_allow_bash_if_sandboxed: false
+
+audit:
+  chain_log_dir: "./logs/chain"
+  sqlite_path: "./data/audit.db"
+  retention_days: 90
+  mirror_to_jsonl: true
+
+mcp:
+  transport: "stdio"
+  manifest_path: "./mcp/manifest.yaml"

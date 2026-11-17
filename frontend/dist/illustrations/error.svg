@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360" fill="none">
+  <title>错误占位 — 警示三角形</title>
+
+  <!-- 外围辅助虚线（冷灰） -->
+  <g stroke="#8A92A2" stroke-width="2" stroke-dasharray="4 6" fill="none">
+    <circle cx="240" cy="170" r="130"/>
+  </g>
+
+  <!-- 角落直角小标 -->
+  <g stroke="#8A92A2" stroke-width="2" fill="none">
+    <polyline points="60,60 60,40 80,40"/>
+    <polyline points="420,60 420,40 400,40"/>
+    <polyline points="60,300 60,320 80,320"/>
+    <polyline points="420,300 420,320 400,320"/>
+  </g>
+
+  <!-- 居中警示三角（警示红） -->
+  <polygon points="240,70 360,250 120,250"
+           stroke="#E53935" stroke-width="3" fill="none"
+           stroke-linejoin="round"/>
+
+  <!-- 内部粗叉号（警示红） -->
+  <g stroke="#E53935" stroke-width="6" stroke-linecap="round">
+    <line x1="200" y1="140" x2="280" y2="220"/>
+    <line x1="280" y1="140" x2="200" y2="220"/>
+  </g>
+</svg>

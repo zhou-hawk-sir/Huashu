@@ -1,0 +1,115 @@
+# 三级风险规则
+# low: 低危，自动执行
+# medium: 中危，需要用户二次确认
+# high: 高危，直接拒绝
+
+# 注意：所有 pattern 都用 ^cmd\b 形式，RiskClassifier 会在匹配前自动
+# 规范化命令（去除 /usr/bin/ 绝对路径、env 前缀等），所以 ^cmd 能覆盖
+# `mkdir` / `/usr/bin/mkdir` / `env mkdir` 等写法。
+
+risk_rules:
+  low:
+    description: "纯查询/局部创建操作，自动放行"
+    patterns:
+      - "^(ps|lsof|top|htop)\\b"
+      - "^(netstat|ss|ip|ifconfig|ping|traceroute)\\b"
+      - "^(df|du|ls|cat|head|tail|wc|grep|rg)\\b"
+      - "^(free|uptime|uname|hostname|date|who|whoami|pwd)\\b"
+      - "^(journalctl)(?!.*--vacuum)"
+      - "^(systemctl)\\s+(status|is-active|is-enabled|list-units)"
+      - "^(mkdir)\\b"
+      - "^(touch)\\b"
+      # echo 不重定向到系统路径时安全
+      - "^(echo)(?!.*>\\s*/etc/|.*>>\\s*/etc/|.*>\\s*/boot/|.*>\\s*/sys/|.*>\\s*/proc/)"
+      # 常见辅助命令
+      - "^(stat|file|which|whereis|type|basename|dirname|readlink)\\b"
+      # 注意：cp / tee 不在这里加 LOW — 即使目标在 /tmp/，
+      # 覆盖既有内容时仍希望用户确认一次。默认 MEDIUM 即可。
+      # ── Stage 4: 麒麟 V11-loongarch 常用查询命令（自动放行） ──
+      # 包查询（仅查询，不安装；安装类仍走 MEDIUM）
+      - "^(rpm|dpkg-query)\\b\\s+(-q|-qi|-ql|-qa|-qc|-qd)"
+      - "^yum\\s+(list|search|info|deplist|provides)\\b"
+      - "^dnf\\s+(list|search|info|deplist|provides)\\b"
+      - "^apt(-get|-cache)?\\s+(list|search|show)\\b"
+      # journalctl 仅查看：带过滤参数或 --since/--until 的查询
+      - "^journalctl\\s+.*--since\\b"
+      - "^journalctl\\s+.*--until\\b"
+      - "^journalctl\\s+-u\\s+\\S+\\s+(--since|--until|-n|-p)"
+      - "^journalctl\\s+-p\\s+(err|warning|info|debug|emerg|alert|crit)"
+      - "^journalctl\\s+-n\\s+\\d+"
+      # 网络查看（不修改链路/IP）
+      - "^ip\\s+(route|addr|link|neigh|rule)\\b"
+      - "^ss\\s+-[tulna]\\b"
+      - "^ls(ip|blk|cpu|pci|usb)\\b"
+      # 麒麟特有（kyinfo 只读；kysec 视运维场景）
+      - "^kyinfo\\b"
+      - "^(sudo\\s+)?kysec\\s+(status|get|query|show)\\b"
+      # 麒麟 / loongarch64 常见查看
+      - "^(uname|hostname|hostnamectl|dmidecode)\\b"
+
+  medium:
+    description: "有限影响的修改操作，需要二次确认"
+    patterns:
+      - "^(systemctl)\\s+(restart|reload|try-restart)"
+      - "^(systemctl)\\s+(start|enable|disable)"
+      - "^(journalctl)\\s+--vacuum"
+      # rm 不命中 HIGH 时为 MEDIUM
+      - "^(rm)(?!\\s+-rf?\\s+/(?!tmp/|var/tmp/|home/))"
+      - "^(mv)\\b"
+      - "^(chmod)\\s+[0-7]*(?!7)"  # 排除 777
+      # pip / npm install 类（本地操作，仍需用户知情）
+      - "^(pip|pip3|npm|yarn|cargo)\\s+install\\b"
+
+  high:
+    description: "高危操作，直接拒绝并解释"
+    patterns:
+      # 经典 rm -rf
+      - "rm\\s+-rf?\\s+/(?!tmp/|var/tmp/|home/)"
+      - "rm\\s+-rf?\\s+/etc"
+      - "rm\\s+-rf?\\s+/boot"
+      - "rm\\s+-rf?\\s+/var/log"
+      # 危险权限
+      - "chmod\\s+(-R\\s+)?777"
+      - "chown\\s+(-R\\s+)?root"
+      # 关键服务
+      - "systemctl\\s+stop\\s+(sshd|network|firewalld)"
+      - "systemctl\\s+disable\\s+(sshd|network|firewalld)"
+      # 关键文件
+      - "(:(){:|:&};:)"  # fork bomb
+      - "(>|>>)\\s*/etc/(passwd|shadow|sudoers|hosts)"
+      - "echo\\s+.+\\s+>\\s*/etc/"
+      # 危险网络
+      - "iptables\\s+-F"
+      - "ip\\s+link\\s+set\\s+\\w+\\s+down"
+      # 注：curl/wget ... | bash 这类管道走"未识别默认 MEDIUM"路径，
+      # 让用户点确认而不是被直接拦（避免误杀合法的"先下载再执行"）。
+      # 如果未来要保 HIGH，可加更严格的 pattern（如 http(s)://.*\\|.*sh）
+
+# 参数级检查：在正则命中后进一步评估
+parameter_checks:
+  rm:
+    escalate_to: "high"
+    when:
+      - "path_starts_with: /etc"
+      - "path_starts_with: /boot"
+      - "path_starts_with: /sys"
+      - "path_starts_with: /proc"
+  cat:
+    escalate_to: "high"
+    when:
+      - "path_starts_with: /etc/passwd"
+      - "path_starts_with: /etc/shadow"
+      - "path_starts_with: /etc/sudoers"
+      - "path_starts_with: /boot"
+      - "path_starts_with: /sys"
+      - "path_starts_with: /proc"
+
+# 路径保护：永远拒绝操作这些路径
+protected_paths:
+  - "/etc/passwd"
+  - "/etc/shadow"
+  - "/etc/sudoers"
+  - "/etc/ssh/sshd_config"
+  - "/boot"
+  - "/sys"
+  - "/proc"

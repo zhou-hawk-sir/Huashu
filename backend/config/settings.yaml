@@ -1,0 +1,159 @@
+# 麒麟智能运维 Agent 主配置
+# 实际部署请复制为 settings.yaml 并填入 API Key 等敏感信息
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 1
+  log_level: "info"
+
+llm:
+  # provider: deepseek | qwen | mock
+  provider: "deepseek"
+  base_url: "https://api.deepseek.com/v1"
+  # 密钥通过环境变量注入，切勿把明文 key 写进配置文件（部署见 deploy.sh EnvironmentFile）
+  api_key_env: "DEEPSEEK_API_KEY"
+  model: "deepseek-v4-flash"
+  timeout: 30
+  max_tokens: 4096
+  temperature: 0.2
+
+safety:
+  injection_detection: true
+  risk_classification: true
+  require_confirmation_for_medium: true
+  llm_self_check: false  # 后置 LLM 自评（更安全但更慢）
+
+  # 仿 Claude Code 模型：
+  # - default_user: 留空/None 表示"以启动 Agent 的当前用户身份运行"
+  # - 不再强制 nobody 中间层（之前会让 alice 的目录写不进去）
+  # - elevated_user 字段保留兼容，新模型里 elevated 工具直接走 root
+  default_user: null
+  elevated_user: "opsagent"  # 已弃用（保留字段以兼容旧配置）
+  deny_root: false  # 默认允许 elevated 工具真正提权到 root
+
+  # 哪些 capability 可走 root（与 policy.yaml 的 allow_root_for_tools 对齐）
+  allow_root_for_tools:
+    - "shell.execute.elevated"
+
+  block_paths:
+    - "/etc/passwd"
+    - "/etc/shadow"
+    - "/etc/sudoers"
+    - "/boot"
+    - "/sys"
+    - "/proc"
+
+  # 沙箱（仿 Claude Code sandbox.enabled）
+  # - 默认关闭：Agent 直接用当前用户跑（仿 Claude Code 默认配置）
+  # - 开启后 shell.execute 会被 bwrap 包一层（PID/UTS/IPC/Net 隔离）
+  sandbox:
+    enabled: true
+    profile: "shell_execute"  # 引用 execution/sandbox_linux.py 的 profile
+    auto_allow_bash_if_sandboxed: false  # 即便沙箱内也走二次确认
+
+  # ────────────────────────────────────────────────────────────────────
+  # ────────────────────────────────────────────────────────────────────
+  # 工具权限（仿 Claude Code settings.json 的 deny 模式）
+  # ────────────────────────────────────────────────────────────────────
+  # 拦截两类：
+  # 1) 提权命令（sudo / su / doas / pkexec）：仿 Claude "never sudo" 原则
+  # 2) 无 sudo 但能造成巨大损失的命令：rm -rf 系统根、格式化磁盘、dd 写设备、
+  #    重启/关机、递归改权限 777、写入 /dev、文件系统挂载/卸载、网络破坏等
+  #
+  # 所有命令以启动 Agent 的当前用户身份执行；不再二次确认弹窗。
+  # 字段说明：
+  #   denied_commands:   永远拒绝（shell.execute / elevated 都直接失败）
+  #   allowed_commands:  预留（默认空）
+  #   enforce:           总开关（默认 true；调试可关）
+  tool_permissions:
+    denied_commands:
+      # ─── 类别 A：提权命令（永不 sudo）─────────────────────────────
+      - "^\\s*(sudo|su|doas|pkexec)\\b"
+      # 嵌套场景：管道 / 命令替换 / 反引号内嵌提权
+      - "[|`](sudo|su|doas|pkexec)\\b"   # bash -c "sudo ls" 等
+      - "\\$\\((sudo|su|doas|pkexec)\\b"  # echo $(sudo cat /etc/shadow)
+
+      # ─── 类别 B：rm 类破坏性删除 ────────────────────────────────
+      # rm -rf 根目录或系统关键路径
+      - "\\brm\\s+(-[rRfF]+\\s+)*-[rRfF]+e?s?\\s+/(\\s|$)"   # rm -rf /  / rm -fr /
+      - "\\brm\\s+(-[rRfF]+\\s+)*-[rRfF]+e?s?\\s+/$"            # 收尾保险
+      - "\\brm\\s+(-[rRfF]+\\s+)*-[rRfF]+e?s?\\s+/(bin|sbin|etc|usr|boot|lib|sys|proc|dev)\\b"
+      - "\\brm\\s+(-[rRfF]+\\s+)*-[rRfF]+e?s?\\s+/(var|opt|home|root|srv|mnt|media)\\b"
+      - "\\brm\\s+(-[rRfF]+\\s+)*-[rRfF]+e?s?\\s+/(home/[^/\\s]+|/root)\\b"  # rm -rf /home 或 /root
+      - "\\brm\\s+(-[rRfF]+\\s+)*-[rRfF]+e?s?\\s+/\\*"  # rm -rf /*
+
+      # ─── 类别 C：磁盘格式化 / 块设备写入 ───────────────────────
+      - "\\bmkfs\\b"               # mkfs.ext4 / mkfs.xfs / mkfs.btrfs
+      - "\\bmkfs\\.[a-z0-9]+\\b"   # mkfs.ext4 等
+      - "\\bdd\\s+.*\\bof=/dev/"   # dd if=... of=/dev/sda 字节级写盘
+      - "\\bwipefs\\b"
+      - "\\bshred\\b"
+      - "\\bhdparm\\b"
+      - "\\bsg_format\\b"
+
+      # ─── 类别 D：磁盘分区操作 ─────────────────────────────────
+      - "\\b(fdisk|parted|sfdisk|cfdisk)\\b"
+      # 注意：blkid 不在这里（只读查询，安全）
+
+      # ─── 类别 E：写入裸设备 ──────────────────────────────────
+      - ">[\\s]*\\s*/dev/(sd|hd|nvme|vd|xvd|mmcblk|loop|md|dm-)"
+      - ">>[\\s]*\\s*/dev/(sd|hd|nvme|vd|xvd|mmcblk|loop|md|dm-)"
+
+      # ─── 类别 F：递归 chmod 777 / 危险所有权变更 ──────────────
+      - "\\bchmod\\s+(-R\\s+)?[0-7]*7[0-7]*\\s+/"   # chmod 777 / 或 chmod 4777 /
+      - "\\bchmod\\s+(-R\\s+)?[0-7]*7[0-7]*\\s+/\\b"
+      - "\\bchown\\s+-R?\\s+\\S+:\\S+\\s+/(bin|sbin|etc|usr|lib|sys)"  # chown -R root:root /etc
+      - "\\bchattr\\s+[+-]i\\s+/(bin|sbin|etc|usr|boot|lib)"          # 取消系统目录不可变
+
+      # ─── 类别 G：重启/关机/服务降级 ────────────────────────
+      - "\\b(shutdown|reboot|poweroff|halt|init\\s+[0-6])\\b"
+      - "\\bsystemctl\\s+(reboot|poweroff|halt)\\.target\\b"
+      - "\\bsystemctl\\s+(mask|disable)\\s+(network|sshd|ssh|NetworkManager)\\b"
+
+      # ─── 类别 H：网络破坏 / 内核破坏 ──────────────────────
+      - "\\b(ip\\s+link\\s+(set|delete)\\s+.*\\b(down|delete)\\b)"  # ip link set eth0 down
+      - "\\b(ifconfig\\s+\\S+\\s+down\\b)"                            # ifconfig eth0 down
+      - "\\biptables\\s+-F\\b"                                         # iptables -F 清空所有规则
+      - "\\bnft\\s+flush\\s+ruleset\\b"                                # nft flush ruleset
+      - "\\bsysctl\\s+-w\\s+net\\.ipv4\\.ip_forward=1\\b"             # 启用 IP forward（潜在路由劫持）
+
+      # ─── 类别 I：用户/系统身份相关 ─────────────────────────
+      - "\\buserdel\\s+-r?\\s+root\\b"     # userdel root
+      - "\\bpasswd\\s+(root|admin)\\b"      # passwd root 直改密码
+      - "\\bgroupdel\\s+"                    # 危险：删组
+
+      # ─── 类别 J：内核模块操作 ───────────────────────────────
+      - "\\b(rmmod|modprobe\\s+-r)\\s+.*\\b(nvidia|amdgpu|i915|vboxnetflt)"  # 卸显卡驱动
+      - "\\binsmod\\b"                                                   # 加载任意内核模块
+
+      # ─── 类别 K：history / 日志审计破坏 ─────────────────────
+      - "\\bhistory\\s+-c\\b"
+      - "\\bunset\\s+HISTFILE\\b"
+      - ">[\\s]*\\s*/var/log/.*\\.log"          # 重定向覆盖系统日志
+
+      # ─── 类别 L：危险通配（重写配置文件 / SSH 密钥）─────────
+      - ">[\\s]*\\s*/etc/.*\\.conf\\b"
+      - ">[\\s]*\\s*~/?\\.ssh/.*id_rsa\\b"     # 覆盖 SSH 私钥
+      - ">[\\s]*\\s*/etc/shadow\\b"
+      - ">[\\s]*\\s*/etc/passwd\\b"
+      - ">[\\s]*\\s*/etc/sudoers(\\s|$)"         # 重写 sudoers
+
+      # ─── 类别 M：cryptsetup / dm-crypt ──────────────────────
+      - "\\bcryptsetup\\s+(luksFormat|remove)\\b"
+
+      # ─── 类别 N：磁盘配额/loop 设备 ────────────────────────
+      - "\\blosetup\\b"                        # 创建 loop 设备（潜在 rootkit 注入载体）
+
+    allowed_commands: []
+    enforce: true
+
+audit:
+  chain_log_dir: "./logs/chain"
+  sqlite_path: "./data/audit.db"
+  retention_days: 90
+  mirror_to_jsonl: true
+
+mcp:
+  transport: "stdio"  # stdio | http
+  manifest_path: "./mcp/manifest.yaml"

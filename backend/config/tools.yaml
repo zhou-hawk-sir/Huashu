@@ -1,0 +1,210 @@
+# MCP 工具清单（Claude 风格 Schema）
+
+tools:
+  - name: process.list
+    description: "列出系统进程，支持按用户、命令名过滤"
+    risk_level: low
+    required_capability: process.read
+    input_schema:
+      type: object
+      properties:
+        user:
+          type: string
+          description: "按用户名过滤"
+        pattern:
+          type: string
+          description: "按命令名正则过滤"
+        limit:
+          type: integer
+          default: 50
+      required: []
+
+  - name: process.kill
+    description: "终止指定 PID 的进程"
+    risk_level: high
+    required_capability: process.kill
+    input_schema:
+      type: object
+      properties:
+        pid:
+          type: integer
+          description: "进程 PID"
+        signal:
+          type: string
+          default: "TERM"
+          enum: ["TERM", "KILL", "HUP", "INT"]
+      required: ["pid"]
+
+  - name: network.list
+    description: "列出网络连接（netstat/ss）"
+    risk_level: low
+    required_capability: network.read
+    input_schema:
+      type: object
+      properties:
+        proto:
+          type: string
+          enum: ["tcp", "udp", "all"]
+          default: "all"
+        state:
+          type: string
+          enum: ["LISTEN", "ESTABLISHED", "all"]
+          default: "all"
+      required: []
+
+  - name: network.connectivity
+    description: "测试到目标主机的网络连通性"
+    risk_level: low
+    required_capability: network.read
+    input_schema:
+      type: object
+      properties:
+        host:
+          type: string
+          description: "目标主机或 IP"
+        count:
+          type: integer
+          default: 3
+      required: ["host"]
+
+  - name: disk.usage
+    description: "查看磁盘使用情况（df -h）"
+    risk_level: low
+    required_capability: disk.read
+    input_schema:
+      type: object
+      properties:
+        path:
+          type: string
+          default: "/"
+      required: []
+
+  - name: disk.find_large
+    description: "查找大于指定大小的文件或目录"
+    risk_level: low
+    required_capability: disk.read
+    input_schema:
+      type: object
+      properties:
+        path:
+          type: string
+          default: "/var"
+        min_size_mb:
+          type: integer
+          default: 100
+        limit:
+          type: integer
+          default: 20
+      required: []
+
+  - name: disk.cleanup
+    description: "清理指定路径的过期文件（日志/tmp）"
+    risk_level: medium
+    required_capability: disk.write
+    input_schema:
+      type: object
+      properties:
+        path:
+          type: string
+          description: "要清理的目录（必须在 /tmp 或 /var/log 下）"
+        pattern:
+          type: string
+          default: "*.log.*"
+        older_than_days:
+          type: integer
+          default: 7
+      required: ["path"]
+
+  - name: log.journal
+    description: "查询 systemd 日志"
+    risk_level: low
+    required_capability: log.read
+    input_schema:
+      type: object
+      properties:
+        unit:
+          type: string
+          description: "服务单元名"
+        since:
+          type: string
+          description: "起始时间，如 '1 hour ago'"
+        priority:
+          type: string
+          enum: ["emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"]
+        lines:
+          type: integer
+          default: 100
+      required: []
+
+  - name: file.read
+    description: "读取文件内容"
+    risk_level: low
+    required_capability: file.read
+    input_schema:
+      type: object
+      properties:
+        path:
+          type: string
+          description: "文件绝对路径"
+        lines:
+          type: integer
+          default: 100
+      required: ["path"]
+
+  - name: file.write
+    description: "创建或覆盖（也可追加）一个文本文件的内容"
+    risk_level: medium
+    required_capability: file.write
+    input_schema:
+      type: object
+      properties:
+        path:
+          type: string
+          description: "目标文件绝对路径"
+        content:
+          type: string
+          description: "要写入的文本内容"
+        append:
+          type: boolean
+          default: false
+          description: "追加到已有内容末尾；默认 false 为覆盖"
+      required: ["path", "content"]
+
+  - name: file.remove
+    description: "删除文件或空目录"
+    risk_level: high
+    required_capability: file.write
+    input_schema:
+      type: object
+      properties:
+        path:
+          type: string
+          description: "目标路径"
+        force:
+          type: boolean
+          default: false
+      required: ["path"]
+
+  - name: service.status
+    description: "查看 systemd 服务状态"
+    risk_level: low
+    required_capability: service.read
+    input_schema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "服务名"
+      required: ["name"]
+
+  - name: service.restart
+    description: "重启 systemd 服务"
+    risk_level: medium
+    required_capability: service.write
+    input_schema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "服务名"
+      required: ["name"]

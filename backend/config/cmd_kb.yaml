@@ -1,0 +1,39 @@
+# Linux 命令知识库配置
+cmd_kb:
+  # 预置 JSON 路径（代码包内置）
+  preset_path: "./cmd_kb/data/cmd_db.json"
+
+  # SQLite 路径（运行时增量采集落地）
+  sqlite_path: "./data/cmd_kb.db"
+
+  # 是否启动时自动采集本机命令
+  runtime_collect: true
+
+  # 采集超时
+  collect_timeout: 30
+
+  # 检索参数
+  search:
+    top_k: 8                # 返回前 K 条
+    min_score: 0.05         # 最小相关性分数
+    use_tfidf: true         # 使用 TF-IDF 语义检索
+    use_keyword: true       # 使用关键词倒排
+
+  # 风险等级映射（命令名默认风险，无法从 metadata 推断时使用）
+  default_risk_by_category:
+    磁盘查询: low
+    进程管理: medium
+    网络诊断: low
+    文件删除: high
+    文件操作: medium
+    权限管理: high
+    服务管理: medium
+    包管理: high
+    用户管理: high
+    系统信息: low
+    文本处理: low
+    日志查看: low
+    进程查询: low
+    目录操作: low
+    硬件信息: low
+    性能监控: low

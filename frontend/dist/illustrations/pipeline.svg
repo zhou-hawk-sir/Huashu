@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" fill="none">
+  <title>智能运维 Agent 数据处理流水线</title>
+
+  <!-- 底部时间轴基线 -->
+  <line x1="60" y1="280" x2="1140" y2="280" stroke="#8A92A2" stroke-width="2" opacity="0.4"/>
+
+  <!-- 4 个模块：感知 → 推理 → 校验 → 执行 -->
+
+  <!-- 模块 1：感知（冷灰·未激活） -->
+  <g transform="translate(80 90)">
+    <rect x="0" y="0" width="220" height="160" rx="6" ry="6" stroke="#8A92A2" stroke-width="2" fill="#121419"/>
+    <!-- 序号 -->
+    <text x="20" y="48" font-family="ui-monospace, monospace" font-size="28" font-weight="700" fill="#8A92A2">01</text>
+    <!-- 标题 -->
+    <text x="20" y="90" font-family="ui-sans-serif, system-ui" font-size="22" font-weight="700" fill="#8A92A2">感知</text>
+    <!-- 副标题 -->
+    <text x="20" y="118" font-family="ui-sans-serif, system-ui" font-size="13" fill="#8A92A2" opacity="0.8">Perceive</text>
+    <!-- 状态点 -->
+    <circle cx="200" cy="30" r="5" fill="#8A92A2"/>
+    <!-- 装饰图标：雷达 -->
+    <g transform="translate(150 80)" stroke="#8A92A2" stroke-width="2" fill="none">
+      <circle cx="30" cy="30" r="26"/>
+      <circle cx="30" cy="30" r="16"/>
+      <line x1="30" y1="30" x2="30" y2="6"/>
+    </g>
+  </g>
+
+  <!-- 模块 2：推理（冷灰） -->
+  <g transform="translate(360 90)">
+    <rect x="0" y="0" width="220" height="160" rx="6" ry="6" stroke="#8A92A2" stroke-width="2" fill="#121419"/>
+    <text x="20" y="48" font-family="ui-monospace, monospace" font-size="28" font-weight="700" fill="#8A92A2">02</text>
+    <text x="20" y="90" font-family="ui-sans-serif, system-ui" font-size="22" font-weight="700" fill="#8A92A2">推理</text>
+    <text x="20" y="118" font-family="ui-sans-serif, system-ui" font-size="13" fill="#8A92A2" opacity="0.8">Reasoning</text>
+    <circle cx="200" cy="30" r="5" fill="#8A92A2"/>
+    <g transform="translate(150 80)" stroke="#8A92A2" stroke-width="2" fill="none">
+      <circle cx="20" cy="14" r="6"/>
+      <circle cx="42" cy="14" r="6"/>
+      <circle cx="30" cy="34" r="6"/>
+      <line x1="20" y1="14" x2="42" y2="14"/>
+      <line x1="20" y1="14" x2="30" y2="34"/>
+      <line x1="42" y1="14" x2="30" y2="34"/>
+    </g>
+  </g>
+
+  <!-- 模块 3：校验（激活·柠檬黄高亮） -->
+  <g transform="translate(640 90)">
+    <rect x="0" y="0" width="220" height="160" rx="6" ry="6" stroke="#FFD320" stroke-width="3" fill="#121419"/>
+    <!-- 高亮内描边 -->
+    <rect x="6" y="6" width="208" height="148" rx="3" ry="3" stroke="#FFD320" stroke-width="1" fill="none" opacity="0.5"/>
+    <text x="20" y="48" font-family="ui-monospace, monospace" font-size="28" font-weight="700" fill="#FFD320">03</text>
+    <text x="20" y="90" font-family="ui-sans-serif, system-ui" font-size="22" font-weight="700" fill="#FFD320">校验</text>
+    <text x="20" y="118" font-family="ui-sans-serif, system-ui" font-size="13" fill="#FFD320" opacity="0.85">Verify</text>
+    <circle cx="200" cy="30" r="5" fill="#FFD320">
+      <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+    </circle>
+    <g transform="translate(150 80)" stroke="#FFD320" stroke-width="2" fill="none">
+      <polyline points="6,28 22,42 44,10"/>
+    </g>
+  </g>
+
+  <!-- 模块 4：执行（冷灰） -->
+  <g transform="translate(920 90)">
+    <rect x="0" y="0" width="220" height="160" rx="6" ry="6" stroke="#8A92A2" stroke-width="2" fill="#121419"/>
+    <text x="20" y="48" font-family="ui-monospace, monospace" font-size="28" font-weight="700" fill="#8A92A2">04</text>
+    <text x="20" y="90" font-family="ui-sans-serif, system-ui" font-size="22" font-weight="700" fill="#8A92A2">执行</text>
+    <text x="20" y="118" font-family="ui-sans-serif, system-ui" font-size="13" fill="#8A92A2" opacity="0.8">Execute</text>
+    <circle cx="200" cy="30" r="5" fill="#8A92A2"/>
+    <g transform="translate(150 80)" stroke="#8A92A2" stroke-width="2" fill="none">
+      <polygon points="20,8 36,28 20,48 4,28"/>
+      <line x1="20" y1="8" x2="20" y2="48"/>
+      <line x1="4" y1="28" x2="36" y2="28"/>
+    </g>
+  </g>
+
+  <!-- 连接箭头（模块间·冷灰） -->
+  <g stroke="#8A92A2" stroke-width="2" fill="none">
+    <line x1="300" y1="170" x2="358" y2="170" stroke-dasharray="0"/>
+    <polygon points="358,164 358,176 350,170" fill="#8A92A2"/>
+  </g>
+  <!-- 钩入模块 3 的箭头（黄色·强调当前步骤） -->
+  <g fill="#FFD320">
+    <line x1="580" y1="170" x2="638" y2="170" stroke="#FFD320" stroke-width="3"/>
+    <polygon points="638,162 638,178 626,170"/>
+  </g>
+  <g stroke="#8A92A2" stroke-width="2" fill="none">
+    <line x1="860" y1="170" x2="918" y2="170"/>
+    <polygon points="918,164 918,176 910,170" fill="#8A92A2"/>
+  </g>
+
+  <!-- 顶部标签 -->
+  <text x="600" y="40" text-anchor="middle" font-family="ui-sans-serif, system-ui" font-size="14" fill="#8A92A2" letter-spacing="2">
+    AGENT · INTELLIGENT OPS PIPELINE
+  </text>
+
+  <!-- 当前激活指示 -->
+  <g transform="translate(750 320)">
+    <line x1="-90" y1="0" x2="90" y2="0" stroke="#FFD320" stroke-width="2"/>
+    <text x="0" y="-12" text-anchor="middle" font-family="ui-sans-serif, system-ui" font-size="13" fill="#FFD320" letter-spacing="2">CURRENT · 校验中</text>
+  </g>
+</svg>

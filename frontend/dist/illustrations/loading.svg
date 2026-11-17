@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" fill="none">
+  <title>加载占位 — 环形旋转</title>
+
+  <!-- 深色炭黑圆形背景 -->
+  <circle cx="100" cy="100" r="96" fill="#121419" stroke="#8A92A2" stroke-width="2"/>
+
+  <!-- 旋转环（柠檬黄·1/4 缺口） -->
+  <g transform-origin="100 100">
+    <circle cx="100" cy="100" r="60"
+            stroke="#FFD320" stroke-width="6"
+            stroke-linecap="round"
+            stroke-dasharray="283 94"
+            fill="none">
+      <animateTransform attributeName="transform"
+                        type="rotate"
+                        from="0 100 100"
+                        to="360 100 100"
+                        dur="1.2s"
+                        repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- 中心点 -->
+  <circle cx="100" cy="100" r="4" fill="#FFD320"/>
+</svg>

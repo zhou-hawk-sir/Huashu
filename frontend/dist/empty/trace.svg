@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360" fill="none">
+  <title>空状态 — trace 日志时序</title>
+
+  <!-- 横向时间轴主线（冷灰） -->
+  <line x1="60" y1="180" x2="420" y2="180" stroke="#8A92A2" stroke-width="2"/>
+
+  <!-- 轴端刻度 -->
+  <g stroke="#8A92A2" stroke-width="2">
+    <line x1="60" y1="172" x2="60" y2="188"/>
+    <line x1="420" y1="172" x2="420" y2="188"/>
+  </g>
+
+  <!-- 节点：6个空心小圆点 -->
+  <g stroke="#8A92A2" stroke-width="2" fill="#121419">
+    <circle cx="100" cy="180" r="6"/>
+    <circle cx="156" cy="180" r="6"/>
+    <circle cx="212" cy="180" r="6"/>
+    <circle cx="324" cy="180" r="6"/>
+    <circle cx="380" cy="180" r="6"/>
+  </g>
+
+  <!-- 核心高亮节点（柠檬黄填充） -->
+  <g fill="#FFD320">
+    <circle cx="268" cy="180" r="8"/>
+    <circle cx="380" cy="180" r="8"/>
+  </g>
+  <!-- 高亮节点描边 -->
+  <circle cx="268" cy="180" r="11" stroke="#FFD320" stroke-width="2" fill="none"/>
+  <circle cx="380" cy="180" r="11" stroke="#FFD320" stroke-width="2" fill="none"/>
+
+  <!-- 引出线：上下交错 -->
+  <g stroke="#8A92A2" stroke-width="2">
+    <path d="M100 174 L100 120 L132 120"/>
+    <path d="M156 186 L156 240 L188 240"/>
+    <path d="M212 174 L212 120 L244 120"/>
+    <path d="M324 186 L324 240 L356 240"/>
+  </g>
+
+  <!-- 引出标签占位（短横线） -->
+  <g stroke="#8A92A2" stroke-width="2">
+    <line x1="132" y1="116" x2="180" y2="116"/>
+    <line x1="188" y1="244" x2="236" y2="244"/>
+    <line x1="244" y1="116" x2="292" y2="116"/>
+    <line x1="356" y1="244" x2="404" y2="244"/>
+  </g>
+
+  <!-- 中心高亮标签 -->
+  <line x1="240" y1="100" x2="296" y2="100" stroke="#FFD320" stroke-width="2"/>
+  <line x1="352" y1="100" x2="408" y2="100" stroke="#FFD320" stroke-width="2"/>
+</svg>

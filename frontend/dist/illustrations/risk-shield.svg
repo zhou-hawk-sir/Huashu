@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400" fill="none">
+  <title>风险等级 — 盾形分级</title>
+
+  <!-- 居中盾形（冷灰描边） -->
+  <g transform="translate(400 200)">
+
+    <!-- 盾外描边 -->
+    <path d="M-130 -140 L130 -140 L130 0 C130 90 70 150 0 170 C-70 150 -130 90 -130 0 Z"
+          stroke="#8A92A2" stroke-width="2" fill="#121419"/>
+
+    <!-- 三级阶梯色块（从左到右：低→高） -->
+    <!-- 第 1 块（柠檬黄·低风险） -->
+    <rect x="-100" y="-100" width="66" height="200" fill="#FFD320"/>
+    <!-- 第 2 块（橙黄过渡） -->
+    <rect x="-34" y="-100" width="66" height="200" fill="#F5A623"/>
+    <!-- 第 3 块（警示红·高风险） -->
+    <rect x="32" y="-100" width="66" height="200" fill="#E53935"/>
+
+    <!-- 阶梯分隔线 -->
+    <g stroke="#121419" stroke-width="2">
+      <line x1="-34" y1="-100" x2="-34" y2="100"/>
+      <line x1="32" y1="-100" x2="32" y2="100"/>
+    </g>
+
+    <!-- 顶部刻度短线 -->
+    <g stroke="#8A92A2" stroke-width="2">
+      <line x1="-100" y1="-110" x2="-100" y2="-100"/>
+      <line x1="-34" y1="-110" x2="-34" y2="-100"/>
+      <line x1="32" y1="-110" x2="32" y2="-100"/>
+      <line x1="98" y1="-110" x2="98" y2="-100"/>
+    </g>
+
+    <!-- 三级阶梯上叠放图标 -->
+    <!-- 低风险：圆点 -->
+    <circle cx="-67" cy="-50" r="6" fill="#121419"/>
+    <!-- 中风险：方块 -->
+    <rect x="-7" y="-56" width="12" height="12" fill="#121419"/>
+    <!-- 高风险：三角警示 -->
+    <polygon points="65,-44 75,-32 55,-32" fill="#121419"/>
+    <!-- 三角内感叹号点 -->
+    <circle cx="65" cy="-28" r="2" fill="#121419"/>
+    <line x1="65" y1="-26" x2="65" y2="-22" stroke="#121419" stroke-width="2"/>
+
+    <!-- 底部箭头指向高风险端 -->
+    <line x1="-100" y1="130" x2="98" y2="130" stroke="#8A92A2" stroke-width="2"/>
+    <polygon points="98,124 110,130 98,136" fill="#8A92A2"/>
+  </g>
+
+  <!-- 标签占位（左右短横线） -->
+  <line x1="100" y1="60" x2="180" y2="60" stroke="#FFD320" stroke-width="2"/>
+  <line x1="100" y1="80" x2="160" y2="80" stroke="#8A92A2" stroke-width="2"/>
+
+  <line x1="620" y1="60" x2="700" y2="60" stroke="#E53935" stroke-width="2"/>
+  <line x1="620" y1="80" x2="680" y2="80" stroke="#8A92A2" stroke-width="2"/>
+</svg>

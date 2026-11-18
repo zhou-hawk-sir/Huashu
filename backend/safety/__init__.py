@@ -1,9 +1,9 @@
-"""安全护栏 - 仿照 Claude 的 safety pipeline
+"""安全护栏 - 分层判定流水线
 
 五级防护（与赛题"安全护栏"三层对齐 + 拆分）：
 - L1 输入过滤：injection_detector          （抗 Prompt Inject）
 - L2 工具风险：risk_classifier              （风险分级：low/medium/high/critical）
-- L2.5 短路层：hooks.HookEngine             （PreToolUse 凌驾 risk，仿 claude-code）
+- L2.5 短路层：hooks.HookEngine             （PreToolUse 凌驾 risk）
 - L2.7 命令权限：command_enforcer           （settings.tool_permissions 正则 deny）
 - L3 权限隔离：permission_proxy             （RBAC 最小权限 + 受限 Account）
 - L4 二次确认：confirmation                 （中风险人审）

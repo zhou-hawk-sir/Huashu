@@ -24,7 +24,7 @@ from tools import all_tools  # noqa: E402
 
 CONFIG = Path(__file__).resolve().parent.parent / "config" / "tools.yaml"
 
-HEADER = """# MCP 工具清单（Claude 风格 Schema）
+HEADER = """# MCP 工具清单（JSON Schema）
 #
 # 本文件由 scripts/sync_tools_yaml.py 从 tools/__init__.py::all_tools() 生成，
 # 请勿手改。工具增删后重新生成：

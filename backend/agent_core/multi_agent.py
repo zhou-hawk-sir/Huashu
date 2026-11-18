@@ -1,6 +1,6 @@
 """多 Agent 编排器
 
-参照 Claude Code Subagent 架构，实现：
+子 Agent 架构：
 - SimpleAgent      → 纯 ReAct（简单任务）
 - PlannerExecutorAgent → Plan-Execute（复杂任务）
 - SubagentPool     → 并行多域任务

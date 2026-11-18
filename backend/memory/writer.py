@@ -440,6 +440,8 @@ class MemoryWriter:
         task: str,
         outcome: Dict[str, Any],
         env: Optional[EnvFingerprint] = None,
+        trace_id: str = "",
+        trace_node_id: Optional[int] = None,
     ) -> Optional[WriteResult]:
         """把一次成功处置沉淀成事件记忆。
 
@@ -487,6 +489,13 @@ class MemoryWriter:
                 "source_type": SOURCE_SESSION,
                 "session_id": session_id,
                 "task": task[:200],
+                # 来源决策链：记忆 → 追踪节点可反查，支撑审计回放
+                **({"trace_id": trace_id} if trace_id else {}),
+                **(
+                    {"trace_node_id": int(trace_node_id)}
+                    if trace_node_id is not None
+                    else {}
+                ),
             },
             env=env,
             session_id=session_id,

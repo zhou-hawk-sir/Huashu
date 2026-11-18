@@ -5,7 +5,7 @@
 1. KB 校验：命令名必须在 CmdStore 中（不接受内置 blacklist 之外未登记的命令）
 2. RiskClassifier：对完整命令行再做一次三档分级（policy_engine 一致）
 
-权限模型（仿 Claude Code settings-strict）：
+权限模型：
 - `shell.execute`：**默认当前用户**（不再 nobody 降权）。
   谁启动 Agent 谁执行；写自己 `/home/alice/x` 直接成功。
 - `shell.execute_elevated`：默认 HIGH 风险，需用户二次确认；
@@ -46,7 +46,7 @@ class ShellExecuteTool(Tool):
     - 不做二次确认（不弹 confirm_request）
     - 唯一拦截：命令含 sudo / su / doas / pkexec 一律拒绝
     - 命令名不在 KB 时直接拒绝（避免 LLM 编造工具）
-    - 其它一律以启动 Agent 的当前用户身份直接执行（仿 Claude Code "never sudo"）
+    - 其它一律以启动 Agent 的当前用户身份直接执行（不调用 sudo）
     """
 
     name = "shell.execute"
@@ -88,7 +88,7 @@ class ShellExecuteTool(Tool):
         if not argv:
             return ToolResult(success=False, error="cmd 解析后为空")
 
-        # ★ 唯一拦截：禁止 sudo / su / doas / pkexec（仿 Claude Code "never sudo"） ★
+        # ★ 唯一拦截：禁止 sudo / su / doas / pkexec ★
         if argv and argv[0] in ("sudo", "su", "doas", "pkexec"):
             return ToolResult(
                 success=False,
@@ -184,7 +184,7 @@ def _classify_for_test(cmdline: str) -> Dict[str, Any]:
 
 
 class ShellExecuteElevatedTool(Tool):
-    """提权 shell 执行工具 —— 显式 root 路径（仿 Claude Code elevated Bash）。
+    """提权 shell 执行工具 —— 显式 root 路径。
 
     设计（精简版 —— 不再二次确认）：
     - 通过 `sudo -n` 提权到 root，前提是启动 Agent 的用户在 sudoers NOPASSWD 白名单内。

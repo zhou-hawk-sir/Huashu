@@ -1,6 +1,6 @@
 """独立 hook 层（YAML 正则 + 短路）。
 
-仿照 claude-code 的 PreToolUse hook。
+PreToolUse 钩子：在工具调用前短路判定。
 - action=deny   → 'deny' (PolicyEngine 短路为 DENY)
 - action=ask    → 'ask'  (PolicyEngine 短路为 CONFIRM)
 - action=allow  → 'allow' (跳过 risk/permission，直接 ALLOW)

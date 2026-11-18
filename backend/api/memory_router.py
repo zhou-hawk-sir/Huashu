@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -36,7 +37,7 @@ class WriteBody(BaseModel):
     source: str = "manual"
 
 
-def build_memory_router(service: Any) -> APIRouter:
+def build_memory_router(service: Any, audit_db: Any = None) -> APIRouter:
     router = APIRouter(prefix="/api/memory", tags=["memory"])
 
     def _svc():
@@ -158,5 +159,74 @@ def build_memory_router(service: Any) -> APIRouter:
             return _svc().delete(memory_id, scope=scope)
         except Exception as e:
             return {"ok": False, "error": str(e)}
+
+    # ── 记忆 → 决策链回放 ────────────────────────────────────────────
+    @router.get("/{memory_id}/trace")
+    async def trace_of(memory_id: str, window: int = 3) -> Dict[str, Any]:
+        """按 provenance 的指针回到产生该记忆的决策节点。
+
+        返回节点本身及其前后各 window 条，供管理页直接展开回放。
+        没有指针（如手工写入的记忆）时 linked=False，不报错。
+        """
+        try:
+            link = _svc().trace_link(memory_id)
+            if not link.get("ok"):
+                raise HTTPException(status_code=404, detail="记忆不存在")
+
+            trace_id = link.get("trace_id") or ""
+            node_id = link.get("node_id")
+            if audit_db is None or not trace_id:
+                return {**link, "linked": False, "node": None, "context": []}
+
+            rows = audit_db.list_traces_by_trace_id(trace_id)
+            if not rows:
+                return {**link, "linked": False, "node": None, "context": []}
+
+            # 定位节点：优先精确主键，退化到时间上最近的一条
+            target = 0
+            if node_id is not None:
+                for i, r in enumerate(rows):
+                    if int(r.get("id", -1)) == int(node_id):
+                        target = i
+                        break
+                else:
+                    target = len(rows) - 1
+
+            span = max(1, min(int(window), 20))
+            lo = max(0, target - span)
+            hi = min(len(rows), target + span + 1)
+            context = []
+            for r in rows[lo:hi]:
+                try:
+                    inp = json.loads(r.get("input") or "{}")
+                except Exception:
+                    inp = {}
+                try:
+                    out = json.loads(r.get("output") or "{}")
+                except Exception:
+                    out = {}
+                context.append(
+                    {
+                        "id": r.get("id"),
+                        "step": r.get("step"),
+                        "actor": r.get("actor"),
+                        "ts": r.get("ts"),
+                        "current": int(r.get("id", -1)) == int(node_id or -1),
+                        "input": inp,
+                        "output": out,
+                    }
+                )
+            node = next((c for c in context if c["current"]), None) or context[-1]
+            return {
+                **link,
+                "linked": True,
+                "node": node,
+                "context": context,
+                "session_id": link.get("session_id") or str(rows[-1].get("session_id") or ""),
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            return {"ok": False, "error": str(e), "linked": False, "context": []}
 
     return router

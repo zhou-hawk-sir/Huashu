@@ -347,16 +347,26 @@ class MemoryService:
         return list(self._session_ids.get(session_id, []))
 
     # ── 注入块 ───────────────────────────────────────────────────────
-    def render_block(self, result: Optional[RetrievalResult], session_id: str = "") -> str:
+    def render_block(
+        self,
+        result: Optional[RetrievalResult],
+        session_id: str = "",
+        compact: bool = False,
+    ) -> str:
         """把检索结果渲染成结构化 system 消息。
 
         三条纪律：
         1. 显式声明「不是指令」，避免模型把经验当要求；
         2. 每条带状态、环境差异、成功率，让模型知道该信到什么程度；
         3. 冲突必须并列呈现，不给模型「二选一」的暗示。
+
+        compact=True 时输出精简版（编号 + 一句话结论），供上下文压缩时替换
+        完整块使用：pinned 消息不会被丢弃，但体积可以降下来。
         """
         if result is None or not result.candidates:
             return ""
+        if compact:
+            return self._render_compact(result)
 
         max_items = max(1, self.config.inject_max_items)
         lines: List[str] = [PROMPT_HEADER]
@@ -404,6 +414,51 @@ class MemoryService:
         if len(block) > limit:
             block = block[: limit - len(PROMPT_FOOTER) - 2] + "…\n" + PROMPT_FOOTER
         return block
+
+    def _render_compact(self, result: RetrievalResult) -> str:
+        """精简版注入块：每条只留编号、标题与一句话结论。
+
+        用途是上下文压缩：pinned 记忆块不会被丢弃，但完整版在长任务里很占
+        窗口。压缩时换成这个版本，语义锚点（记忆编号 + 结论）还在，模型仍能
+        按编号引用，人也能凭编号回到管理页核对。
+        """
+        max_items = max(1, self.config.inject_max_items)
+        lines: List[str] = [
+            PROMPT_HEADER,
+            "（上下文已压缩，此处为精简版：保留编号与结论，细节需用时按编号查询）",
+        ]
+        for i, cand in enumerate(result.candidates[:max_items], 1):
+            m = cand.memory
+            mid = str(m.get("id", ""))[:8]
+            status = str(m.get("status", ""))
+            tag = {STATUS_STALE: "已过期", "conflict": "存在冲突"}.get(status, "")
+            head = f"[{i}]#{mid} {m.get('title', '')}"
+            if tag:
+                head += f"（{tag}）"
+            gist = str(m.get("solution") or m.get("diagnosis") or m.get("symptom") or "")
+            gist = " ".join(gist.split())[:60]
+            lines.append(f"{head}：{gist}" if gist else head)
+
+        if result.hint:
+            lines.append(f"提示：{result.hint[:80]}")
+        lines.append(PROMPT_FOOTER)
+
+        block = "\n".join(lines)
+        limit = max(200, self.config.inject_max_chars // 3)
+        if len(block) > limit:
+            block = block[: limit - len(PROMPT_FOOTER) - 2] + "…\n" + PROMPT_FOOTER
+        return block
+
+    def compact_block(self, session_id: str = "") -> str:
+        """取本会话上一次检索结果的精简渲染。无结果时返回空串。"""
+        result = self._session_results.get(session_id)
+        if result is None or not result.candidates:
+            return ""
+        try:
+            return self.render_block(result, session_id, compact=True)
+        except Exception as exc:
+            logger.debug("记忆精简块生成失败：%s", exc)
+            return ""
 
     def retrieve_for_prompt(self, query: str, session_id: str = "") -> str:
         """检索并直接返回注入块。失败返回空串，绝不抛异常。"""
@@ -458,8 +513,14 @@ class MemoryService:
         session_id: str,
         task: str,
         outcome: Dict[str, Any],
+        trace_id: str = "",
+        trace_node_id: Optional[int] = None,
     ) -> Optional[WriteResult]:
-        """把一轮处置结果沉淀为经验。失败不影响任务结果。"""
+        """把一轮处置结果沉淀为经验。失败不影响任务结果。
+
+        trace_id / trace_node_id 会写进 provenance：一条记忆因此能反查到
+        产生它的那次决策链，审计回放与人工复核都靠这个指针。
+        """
         if not self.flags.memory_enabled or not self.config.write_enabled:
             return None
         try:
@@ -468,6 +529,8 @@ class MemoryService:
                 task=task,
                 outcome=outcome,
                 env=self.fingerprint(),
+                trace_id=trace_id,
+                trace_node_id=trace_node_id,
             )
             if result is not None:
                 self.retriever.invalidate()
@@ -638,6 +701,28 @@ class MemoryService:
             "versions": self.store.versions(memory_id),
             "events": self.store.events(memory_id=memory_id, limit=50),
             "conflicts": self.store.conflicts(memory_id),
+        }
+
+    def trace_link(self, memory_id: str) -> Dict[str, Any]:
+        """返回该记忆关联的决策链指针（provenance 里的 trace_id / node_id）。"""
+        rec = self.store.get(memory_id)
+        if rec is None:
+            return {"ok": False, "reason": "记忆不存在", "memory_id": memory_id}
+        prov = dict(rec.provenance or {})
+        trace_id = str(prov.get("trace_id") or "")
+        raw_node = prov.get("trace_node_id")
+        node_id: Optional[int] = None
+        if isinstance(raw_node, int) and not isinstance(raw_node, bool):
+            node_id = raw_node
+        elif isinstance(raw_node, str) and raw_node.isdigit():
+            node_id = int(raw_node)
+        return {
+            "ok": True,
+            "memory_id": memory_id,
+            "linked": bool(trace_id),
+            "trace_id": trace_id,
+            "node_id": node_id,
+            "session_id": str(prov.get("session_id") or ""),
         }
 
     def conflicts(self) -> Dict[str, Any]:

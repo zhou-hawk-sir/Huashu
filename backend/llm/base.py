@@ -1,6 +1,6 @@
 """LLM 客户端抽象接口
 
-仿照 Claude 的 tool_use 设计：
+tool_use 协议设计：
 - chat: 同步调用，返回完整响应
 - stream_chat: 流式调用，便于实时推送思维链
 - LLMResponse 统一格式：content / tool_calls / usage
@@ -14,7 +14,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 @dataclass
 class Message:
-    """对话消息，支持 tool 角色（OpenAI 风格）。"""
+    """对话消息，支持 tool 角色（OpenAI 兼容格式）。"""
     role: str  # system | user | assistant | tool
     content: str = ""
     name: Optional[str] = None

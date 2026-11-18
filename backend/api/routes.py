@@ -339,7 +339,7 @@ def build_router(loop) -> APIRouter:
     ) -> WorkspaceResponse:
         """设置/更新会话的受信任工作目录。
 
-        校验失败仍返回 200，调用方根据 ok 字段判断（与 Claude Code 一致）。
+        校验失败仍返回 200，调用方根据 ok 字段判断。
         """
         from utils.i18n import t
         # 兼容：先确保 session 存在；否则立即创建（空 metadata）

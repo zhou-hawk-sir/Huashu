@@ -1,6 +1,6 @@
 """工具基类
 
-仿照 Claude 的 Tool 抽象：name / description / input_schema / run()
+工具抽象：name / description / input_schema / run()
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class Tool(abc.ABC):
         """执行工具，返回 ToolResult。"""
 
     def to_manifest(self) -> Dict[str, Any]:
-        """导出 Claude 风格 manifest。"""
+        """导出工具 manifest。"""
         return {
             "name": self.name,
             "description": self.description,

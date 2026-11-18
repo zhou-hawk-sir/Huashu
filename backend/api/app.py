@@ -57,7 +57,7 @@ def create_app() -> FastAPI:
     # 1. LLM 客户端（支持多 provider 降级）
     llm = create_llm_client()
 
-    # 1.5 命令权限 enforcer（仿 Claude Code tool_permissions 配置）
+    # 1.5 命令权限 enforcer（工具级权限配置）
     # 从 settings.yaml 读出 denied / allowed / ask，正则驱动
     try:
         from safety.command_enforcer import reset_enforcer, CommandEnforcer
@@ -157,7 +157,8 @@ def create_app() -> FastAPI:
     # 命令知识库 REST（/api/cmd_kb/*）— 供前端 CmdKbView 使用
     app.include_router(build_cmd_kb_router())
     # 记忆层 REST（/api/memory/*）— 供 /web/memory/ 管理页使用
-    app.include_router(build_memory_router(memory))
+    # audit_db 用于「记忆 → 决策链」反查回放，缺失时该接口退化为未关联
+    app.include_router(build_memory_router(memory, getattr(loop, "audit_db", None)))
 
     # 简易 B/S 前端（web/{index.html, style.css, app.js}）
     try:

@@ -33,7 +33,7 @@ _SYSTEM_PROMPT = """你是麒麟智能运维 Agent（OpsAgent），部署在麒�
 ## 你可用的工具（MCP Plugin）
 {{tool_list}}
 
-## 路径选择规则（仿 Claude Code 模型：写自己的文件不会被拦）
+## 路径选择规则（写工作目录内的文件不受拦截）
 
 Agent 以**启动它的当前用户**身份执行工具（不再 nobody 中间层）。
 默认你能写到任何你自己拥有的文件，包括 `/home/<you>/...`。
@@ -122,7 +122,7 @@ class PromptBuilder:
                 "再调用对应的 MCP 工具（如 disk.usage 对应 df、process.list 对应 ps 等）。"
             )
 
-        # 受信任工作目录（Claude Code 风格 cwd 信任）
+        # 受信任工作目录（会话级目录信任）
         workspace = (ctx_metadata or {}).get("workspace")
         if workspace and isinstance(workspace, dict):
             ws_root = workspace.get("root")
@@ -201,7 +201,7 @@ def _render_local_context(ctx: Dict[str, Any]) -> str:
     if ctx.get("executable_count") is not None:
         lines.append(f"- PATH 可执行文件数: {ctx.get('executable_count')}")
 
-    # ── 本机可用 shell 命令索引（仿 Claude Code 启动时扫描 PATH）────
+    # ── 本机可用 shell 命令索引（启动时扫描 PATH）────
     # 让 LLM 知道本机有哪些命令可用，避免在没装某工具时去拼 `command not found`。
     exes = ctx.get("executables") or []
     if exes:

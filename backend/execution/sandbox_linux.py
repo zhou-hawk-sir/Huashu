@@ -191,7 +191,7 @@ class BubblewrapSandbox:
         bwrap_args = self._build_bwrap_args(cmd)
 
         # 如果指定了 user，包装 sudo
-        # 仿 Claude Code：root 通过 sudo -n 提权，不再禁止
+        # root 通过 sudo -n 提权时不再拦截
         if user == "root":
             bwrap_args = ["sudo", "-n"] + bwrap_args
         elif user:

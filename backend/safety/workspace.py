@@ -1,6 +1,6 @@
 """受信任工作目录（Trusted Workspace）
 
-仿照 Claude Code 的 cwd 信任模型：会话可指定一个工作目录，目录内的
+目录信任模型：会话可指定一个工作目录，目录内的
 MEDIUM 风险操作自动放行；越界仍需用户二次确认；保护路径（/etc /boot
 /sys /proc 等）永远拒绝，凌驾于 workspace 信任之上。
 

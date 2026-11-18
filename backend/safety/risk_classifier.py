@@ -5,7 +5,7 @@
 - medium: 需二次确认
 - high: 直接拒绝
 
-设计原则（仿照 Claude Code 的 settings.allow/deny + hooks）：
+设计原则（allow/deny 规则 + hooks 短路）：
 1. 高危永远 DENY，先匹配（让 HIGH 优先生效）
 2. 中危需确认
 3. 低危自动放行

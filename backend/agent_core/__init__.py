@@ -1,6 +1,6 @@
 """Agent Core 主引擎
 
-仿照 Claude 的 agent loop 设计：
+Agent 主循环设计：
 - 接收用户输入
 - 上下文管理（滑动窗口）
 - Prompt 构建（系统提示 + 工具 schema + 历史）

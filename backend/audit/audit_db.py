@@ -211,12 +211,17 @@ class AuditDB:
 
     # ---- traces ----
 
-    def add_trace(self, step: TraceStep) -> None:
+    def add_trace(self, step: TraceStep) -> Optional[int]:
+        """写入一条追踪节点，返回自增主键。
+
+        返回值供 Tracer 回填到 step.node_id：记忆的 provenance 存下这个主键，
+        就能从一条记忆反查到产生它的决策节点。
+        """
         # H2: 双保险——即便上游忘了脱敏，落库前再过一遍 redact
         safe_input = redact(step.input) if step.input else step.input
         safe_output = redact(step.output) if step.output else step.output
         with self._lock, self._connect() as conn:
-            conn.execute(
+            cur = conn.execute(
                 "INSERT INTO traces(trace_id, session_id, step, actor, input, output, "
                 "rationale, user_confirmed, ts) VALUES (?,?,?,?,?,?,?,?,?)",
                 (
@@ -232,12 +237,22 @@ class AuditDB:
                 ),
             )
             conn.commit()
+            return int(cur.lastrowid) if cur.lastrowid is not None else None
 
     def list_traces(self, session_id: str) -> List[Dict[str, Any]]:
         with self._lock, self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM traces WHERE session_id=? ORDER BY id",
                 (session_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def list_traces_by_trace_id(self, trace_id: str) -> List[Dict[str, Any]]:
+        """按 trace_id 取整条决策链（同一次用户请求内的全部节点）。"""
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM traces WHERE trace_id=? ORDER BY id",
+                (trace_id,),
             ).fetchall()
             return [dict(r) for r in rows]
 

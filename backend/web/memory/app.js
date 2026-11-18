@@ -148,6 +148,27 @@ async function doSearch() {
 }
 
 /* ── 详情 ─────────────────────────────────────────────── */
+async function loadTrace(id, mount) {
+  mount.innerHTML = `<div class="muted">读取中…</div>`;
+  try {
+    const r = await api(`/${encodeURIComponent(id)}/trace`);
+    if (!r.ok || !r.linked) {
+      mount.innerHTML = `<div class="muted">该记忆没有关联决策节点（手工写入，或写入时追踪未落库）</div>`;
+      return;
+    }
+    const rows = (r.context || []).map((c) => `
+      <div class="trace-row ${c.current ? "cur" : ""}">
+        <span class="mono">#${esc(c.id)}</span>
+        <span class="tag kind">${esc(c.step)}</span>
+        <span class="muted">${esc(c.actor)} · ${esc(String(c.ts || "").slice(0, 19).replace("T", " "))}</span>
+      </div>`).join("");
+    mount.innerHTML =
+      `<div class="muted">决策链 ${esc(String(r.trace_id).slice(0, 8))} · 命中节点 #${esc(r.node_id)}</div>${rows}`;
+  } catch (e) {
+    mount.innerHTML = `<div class="muted">决策链读取失败：${esc(e.message)}</div>`;
+  }
+}
+
 async function openDetail(id) {
   currentId = id;
   document.querySelectorAll("tbody tr").forEach((tr) => {
@@ -183,6 +204,12 @@ async function openDetail(id) {
 
       <div class="field"><div class="lab">环境指纹</div><div class="kv">${esc(env ? JSON.stringify(env, null, 1) : "未记录")}</div></div>
       <div class="field"><div class="lab">来源（provenance）</div><div class="kv">${esc(JSON.stringify(m.provenance || {}, null, 1))}</div></div>
+      <div class="field"><div class="lab">来源决策链</div>
+        <div class="kv">
+          <button data-act="trace">查看决策链</button>
+          <div id="traceList"></div>
+        </div>
+      </div>
       <div class="field"><div class="lab">版本链</div><div class="kv">${versions}</div></div>
       <div class="field"><div class="lab">事件</div><div class="kv">${events}</div></div>
       <div class="field"><div class="lab">冲突</div><div class="kv">${conflicts}</div></div>
@@ -196,7 +223,13 @@ async function openDetail(id) {
       </div>`;
 
     $("#detail").querySelectorAll("button[data-act]").forEach((btn) => {
-      btn.addEventListener("click", () => act(btn.dataset.act, id));
+      btn.addEventListener("click", () => {
+        if (btn.dataset.act === "trace") {
+          loadTrace(id, $("#traceList"));
+          return;
+        }
+        act(btn.dataset.act, id);
+      });
     });
   } catch (e) {
     $("#detail").innerHTML = `<div class="empty">${esc(e.message)}</div>`;

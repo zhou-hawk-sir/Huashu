@@ -22,7 +22,7 @@ safety:
   require_confirmation_for_medium: true
   llm_self_check: false
 
-  # 仿 Claude Code 模型（settings-strict.json）：
+  # 严格模式（allow / ask / deny）：
   # - default_user: 留空 = 当前用户（不再强制 nobody）
   # - elevated 工具真正提权到 root（在 allow_root_for_tools 白名单内）
   default_user: null
@@ -30,7 +30,7 @@ safety:
   deny_root: false
 
   allow_root_for_tools:
-    - "shell.execute_elevated"  # 仿 Claude Code 的 sandbox.enabled=false
+    - "shell.execute_elevated"  # 等价于 sandbox.enabled=false
 
   # 可选沙箱
   sandbox:

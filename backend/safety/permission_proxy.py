@@ -1,6 +1,6 @@
 """最小权限代理
 
-策略（仿 Claude Code settings-strict.json）：
+策略：
 - **默认 = 启动 Agent 的当前用户**（不再强制 nobody 中间层）。
   Agent 的权限 = 用户的权限，由内核 DAC 自然约束。
 - **通过 `sudo -n -u <user>` 切换**：用于显式需要其他账户能力的场景。

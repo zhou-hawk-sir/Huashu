@@ -40,7 +40,7 @@ confirmation:
   timeout_seconds: 60
   default_on_timeout: false  # 超时默认拒绝
 
-# 权限策略（仿 Claude Code settings-strict.json 的 allow/ask/deny 思路）
+# 权限策略（allow / ask / deny 三态）
 permissions:
   # 工具名 → 所需能力
   capability_map:
@@ -60,7 +60,7 @@ permissions:
     shell.execute: "shell.execute"
     shell.execute_elevated: "shell.execute.elevated"
 
-  # 能力 → 允许的用户（Claude Code 模型：默认当前用户）
+  # 能力 → 允许的用户（默认当前用户）
   # - 不再 hardcode nobody；列表为空表示"以启动 Agent 的当前用户身份运行"
   # - 显式列出 opsagent 仅在确有跨账户需求时使用
   # - shell.execute.elevated 在 allow_root_for_tools 白名单中，可提权 root

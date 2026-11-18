@@ -1,12 +1,12 @@
 """语义上下文压缩器
 
-参照 Claude Code 的 "autocompact" 机制：
+上下文接近上限时触发语义压缩：
 当对话上下文接近 token 上限时，调用 LLM 生成摘要，
 用摘要替换历史消息，保持语义完整性。
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Callable, List, Optional
 
 from llm.base import LLMClient, Message
 from utils.logger import get_logger
@@ -40,7 +40,11 @@ class ContextCompressor:
         threshold = int(self.max_tokens * self.compression_threshold)
         return total >= threshold
 
-    def compress(self, messages: List[Message]) -> List[Message]:
+    def compress(
+        self,
+        messages: List[Message],
+        memory_rewriter: Optional[Callable[[], Optional[str]]] = None,
+    ) -> List[Message]:
         """
         压缩消息列表。
 
@@ -48,6 +52,7 @@ class ContextCompressor:
         1. 保留 system prompt（始终保留）
         2. 保留最近 N 条消息（保留最新上下文）
         3. 将中间的历史消息压缩为一段摘要
+        4. 记忆注入块换成精简版（memory_rewriter 提供），而不是原样占着窗口
         """
         # 分离 system 与非 system 消息。pinned 消息同样必须保留：
         # 记忆注入块承担「历史参考」作用，压缩时要与 system prompt 同等对待。
@@ -55,18 +60,19 @@ class ContextCompressor:
         non_system = [m for m in messages if not (m.role == "system" or m.pinned)]
 
         if len(non_system) <= self.retain_recent:
-            return messages
+            # 没有可压缩的历史，但如果记忆块还在，仍然给它一次瘦身机会
+            return self._slim_memory(system_msgs, memory_rewriter) + non_system
 
         # 保留最近消息
         recent = non_system[-self.retain_recent:]
-        to_summarize = non_system[:-self.retain_recent]
+        to_summarize = non_system[:-self.retain_recent:]
 
         # 生成摘要
         summary_text = self._summarize(to_summarize)
 
         # 构建压缩后的消息列表
         result: List[Message] = []
-        result.extend(system_msgs)
+        result.extend(self._slim_memory(system_msgs, memory_rewriter))
         result.append(Message(
             role="system",
             content=f"[对话历史摘要]\n以下是对之前对话的摘要，供参考：\n{summary_text}",
@@ -79,6 +85,37 @@ class ContextCompressor:
             f"(tokens: {self._estimate_tokens(messages)} → {new_total})"
         )
         return result
+
+    @staticmethod
+    def _slim_memory(
+        system_msgs: List[Message],
+        memory_rewriter: Optional[Callable[[], Optional[str]]],
+    ) -> List[Message]:
+        """把记忆注入块换成精简版，其余 system 消息原样返回。
+
+        记忆块是 pinned 的，压缩不会丢它；但它带完整方案正文，长任务里会持续
+        占用窗口。这里只保留「编号 + 一句话结论」，模型仍能按编号引用，人也
+        能凭编号回管理页核对原文。
+        """
+        out = list(system_msgs)
+        if memory_rewriter is None:
+            return out
+        for i, m in enumerate(out):
+            if m.role == "system" and m.name == "memory":
+                try:
+                    slim = memory_rewriter()
+                except Exception as exc:  # 记忆层任何异常都不影响压缩
+                    logger.debug(f"memory rewriter failed: {exc}")
+                    slim = ""
+                if slim and len(slim) < len(m.content or ""):
+                    out[i] = Message(
+                        role="system",
+                        content=slim,
+                        name="memory",
+                        pinned=True,
+                    )
+                break
+        return out
 
     def _summarize(self, messages: List[Message]) -> str:
         """调用 LLM 生成摘要"""

@@ -1,6 +1,6 @@
 """文件工具
 
-权限模型（仿 Claude Code settings-strict）：
+权限模型：
 - 默认以**当前用户**身份执行 file.write / file.read / file.remove，
   由内核 DAC 自然放行/拒绝。Agent 的权限 = 启动它的用户的权限。
 - 不再做 `sudo -u opsagent` 的中间切换（之前会导致 alice 的目录写不进去）。

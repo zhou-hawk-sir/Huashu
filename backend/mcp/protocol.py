@@ -74,7 +74,7 @@ class JsonRpcResponse:
 
 @dataclass
 class ToolDefinition:
-    """工具定义（Claude 风格）。"""
+    """工具定义（JSON Schema）。"""
     name: str
     description: str
     input_schema: Dict[str, Any] = field(default_factory=dict)

@@ -1,12 +1,12 @@
 """工具执行辅助：通过 subprocess 执行 shell 命令
 
-权限模型（仿 Claude Code settings-strict）：
+权限模型：
 - **默认 = 启动 Agent 的当前用户**（不切 nobody、不切 opsagent）。
   Agent 的权限 = 启动它的用户的权限，由内核 DAC 自然放行/拒绝。
 - **可选 user 参数**：显式以其他账户运行（通过 `sudo -n -u <user>`）。
 - **root 提权**：仅在 `shell.execute_elevated` 这类显式高危工具里允许，
   通过 `sudo -n` 提权；调用方需确保 sudoers 已配 NOPASSWD。
-- **沙箱感知**：可选包一层 `bwrap`，仿 Claude Code `sandbox.enabled`。
+- **沙箱感知**：可选包一层 `bwrap`（对应 `sandbox.enabled`）。
 
 平台说明：
 - Linux：通过 `sudo -n -u <user>` 切换账户（生产 V11 路径）

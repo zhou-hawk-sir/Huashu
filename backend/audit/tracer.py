@@ -51,6 +51,9 @@ class TraceStep:
     output: Dict[str, Any] = field(default_factory=dict)
     decision_rationale: Optional[str] = None
     user_confirmed: Optional[bool] = None
+    # 落库后的自增主键。记忆的 provenance 存这个值，就能反向定位到
+    # 产生它的那条决策节点；未落库（只走 JSONL）时为 None。
+    node_id: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -69,6 +72,8 @@ class Tracer:
         self.session_id = session_id
         self._trace_id = str(uuid.uuid4())
         self.sinks = sinks or []
+        # 最近一条成功落库的节点主键，供调用方回填到记忆 provenance
+        self.last_node_id: Optional[int] = None
 
     def add_sink(self, sink: Any) -> None:
         self.sinks.append(sink)
@@ -105,16 +110,26 @@ class Tracer:
             user_confirmed=user_confirmed,
         )
 
+        node_id: Optional[int] = None
         for sink in self.sinks:
             try:
                 if hasattr(sink, "write"):
                     maybe = sink.write(ts_step)
                     if hasattr(maybe, "__await__"):
-                        await maybe
+                        maybe = await maybe
                 elif callable(sink):
-                    sink(ts_step)
+                    maybe = sink(ts_step)
+                else:
+                    maybe = None
             except Exception:
-                pass
+                maybe = None
+            # 落库 sink 返回自增主键；JSONL sink 返回 None
+            if isinstance(maybe, int) and not isinstance(maybe, bool):
+                node_id = maybe
+
+        if node_id is not None:
+            ts_step.node_id = node_id
+            self.last_node_id = node_id
 
         return ts_step
 

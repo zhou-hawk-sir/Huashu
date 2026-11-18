@@ -5,7 +5,7 @@
 - 根因诊断（当检测到故障排查时自动触发）
 - 上下文语义压缩（token 接近上限时自动压缩）
 - 并行工具调度（低风险工具可并行执行）
-- 受信任工作目录（Trusted Workspace，Claude Code 风格 cwd 信任）
+- 受信任工作目录（Trusted Workspace，会话级目录信任）
 
 核心流程：
 1. 注入检测
@@ -221,6 +221,12 @@ class AgentLoop:
             self._compressor = ContextCompressor(llm=self.llm)
         return self._compressor
 
+    def _memory_rewriter(self, session_id: str):
+        """压缩时用于替换记忆块的取数函数；没有记忆层就返回 None。"""
+        if self.memory is None:
+            return None
+        return lambda: self.memory.compact_block(session_id)
+
     @property
     def orchestrator(self):
         """延迟初始化的多 Agent 编排器"""
@@ -364,7 +370,7 @@ class AgentLoop:
     # 工作目录（workspace）信任
     # -------------------------------------------------------------
     def set_workspace(self, session_id: str, raw_path: str) -> Dict[str, Any]:
-        """设置/更新会话的工作目录（Claude Code cwd 信任风格）。
+        """设置/更新会话的工作目录（会话级目录信任）。
 
         返回 dict 含 ok/root/reason 等字段，调用方应原样作为 ``workspace_event`` payload。
         """
@@ -647,7 +653,11 @@ class AgentLoop:
 
                 # 2.5) 语义压缩（接近 token 上限时）
                 if self.enable_compression and self.compressor.should_compress(ctx.messages):
-                    ctx.messages = await asyncio.to_thread(self.compressor.compress, ctx.messages)
+                    ctx.messages = await asyncio.to_thread(
+                        self.compressor.compress,
+                        ctx.messages,
+                        self._memory_rewriter(session_id),
+                    )
                     await send(StreamEvent("context_event", {
                         "type": "compressed",
                         "message": "上下文已自动压缩"
@@ -802,7 +812,11 @@ class AgentLoop:
 
                     # 压缩检查（每轮结束后）
                     if self.enable_compression and self.compressor.should_compress(ctx.messages):
-                        ctx.messages = await asyncio.to_thread(self.compressor.compress, ctx.messages)
+                        ctx.messages = await asyncio.to_thread(
+                            self.compressor.compress,
+                            ctx.messages,
+                            self._memory_rewriter(session_id),
+                        )
                         await send(StreamEvent("context_event", {
                             "type": "compressed",
                             "message": "上下文已自动压缩"
@@ -871,6 +885,9 @@ class AgentLoop:
                 session_id,
                 user_input,
                 {"success": True, "tools": tool_log, "answer": answer},
+                # 把产生这条经验的决策链指针一并写入 provenance
+                trace_id=getattr(tracer, "trace_id", ""),
+                trace_node_id=getattr(tracer, "last_node_id", None),
             )
             if result is not None:
                 await self.memory.emit_write(tracer, result)

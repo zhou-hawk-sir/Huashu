@@ -1,4 +1,4 @@
-"""命令行 enforcement（仿 Claude Code settings.json 的 deny 模式）
+"""命令行 enforcement（deny 优先模式）
 
 工作流程：
 1. 从 settings.yaml 的 `safety.tool_permissions` 段读出两类正则：

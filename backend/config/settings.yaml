@@ -24,7 +24,7 @@ safety:
   require_confirmation_for_medium: true
   llm_self_check: false  # 后置 LLM 自评（更安全但更慢）
 
-  # 仿 Claude Code 模型：
+  # 严格模式（allow / ask / deny）：
   # - default_user: 留空/None 表示"以启动 Agent 的当前用户身份运行"
   # - 不再强制 nobody 中间层（之前会让 alice 的目录写不进去）
   # - elevated_user 字段保留兼容，新模型里 elevated 工具直接走 root
@@ -44,8 +44,8 @@ safety:
     - "/sys"
     - "/proc"
 
-  # 沙箱（仿 Claude Code sandbox.enabled）
-  # - 默认关闭：Agent 直接用当前用户跑（仿 Claude Code 默认配置）
+  # 沙箱（sandbox.enabled）
+  # - 默认关闭：Agent 直接用当前用户跑
   # - 开启后 shell.execute 会被 bwrap 包一层（PID/UTS/IPC/Net 隔离）
   sandbox:
     enabled: true
@@ -54,10 +54,10 @@ safety:
 
   # ────────────────────────────────────────────────────────────────────
   # ────────────────────────────────────────────────────────────────────
-  # 工具权限（仿 Claude Code settings.json 的 deny 模式）
+  # 工具权限（deny 优先）
   # ────────────────────────────────────────────────────────────────────
   # 拦截两类：
-  # 1) 提权命令（sudo / su / doas / pkexec）：仿 Claude "never sudo" 原则
+  # 1) 提权命令（sudo / su / doas / pkexec）：一律拒绝
   # 2) 无 sudo 但能造成巨大损失的命令：rm -rf 系统根、格式化磁盘、dd 写设备、
   #    重启/关机、递归改权限 777、写入 /dev、文件系统挂载/卸载、网络破坏等
   #
